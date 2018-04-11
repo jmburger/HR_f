@@ -13,16 +13,18 @@ MAX30100 sensor;
 #define Highres_mode    true                            //High resolution mode
 
 //Heart Rate
-#define RECORDING_TIME  2000          //Recording time for heart rate (5 seconds)
-#define SIZE 400                      //Vector size equal recording time divided by 10
-#define ALPHA_VAL_DCR     0.95        //DC filter alpha value
-#define SAMPLE_SIZE  100              //Mean difference filter sample size used to calculate the running mean difference
+#define RECORDING_TIME  5000000         //Recording time for heart rate (5 seconds)
+#define SIZE  RECORDING_TIME/10000      //Vector size equal recording time divided by 10
+#define ALPHA_VAL_DCR     0.95          //DC filter alpha value
+#define SAMPLE_SIZE  100                //Mean difference filter sample size used to calculate the running mean difference
 
 //Variables store raw RED and IR values
 uint16_t raw_IR_Val = 0;
 uint16_t raw_RED_Val = 0;
 double IR_Val = 0;
+double RED_Val = 0;
 double IR_vec[SIZE]; //IR LED Vector for x sec
+double RED_vec[SIZE]; //IR LED Vector for x sec
 
 //------------------------------------------
 //DC remover:
@@ -72,25 +74,30 @@ void setup() {
 
 void loop() {
   //-----------HR & SpO2 Sensor-------------
+  //----------------------------------------
   int a = 0;                        //Counter
-  int delta_time = 0;
-  int start_time = millis();  
+  int delta_time = 0;               //zero remaining time 
+  int start_time = micros();        //starting time when enter while loop
+  //-----------------------Reading raw sensor values-------------------------------
   while (delta_time < RECORDING_TIME)
   {     
     sensor.update();
     if (sensor.getRawValues(&raw_IR_Val, &raw_RED_Val))
     {
-      Serial.print(raw_IR_Val);  
+      // Serial.print(raw_IR_Val);  
       IR_vec[a] = raw_IR_Val;
-      Serial.print(" | ");
-      Serial.print(IR_vec[a]); 
-      Serial.print(" | ");
-      Serial.println(micros()); 
+      RED_vec[a] = raw_RED_Val;
+      // Serial.print(" | ");
+      // Serial.print(IR_vec[a]); 
+      // Serial.print(" | ");
+      // Serial.println(micros()); 
       a++;
     }
-    delta_time = millis() - start_time;
+    delta_time = micros() - start_time;   //update remaining time 
   }
-
+  sensor.shutdown();
+  //-----------------------Processing raw values-----------------------------------
+  delay(5000);
   Serial.println(a);
   // for (int i = 0; i < sizeof(IR_vec); i++)
   // {
@@ -98,6 +105,7 @@ void loop() {
   // }
   Serial.println("end");
   //delay(1000);
+  sensor.resume();
 
 }
 
