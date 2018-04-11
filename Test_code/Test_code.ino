@@ -2,6 +2,7 @@
 #include <Wire.h>
 #include <math.h>
 #include <stdint.h>
+#include <stdio.h>
 
 // MAX30100 sensor:
 #include <MAX30100.h>
@@ -15,21 +16,17 @@ MAX30100 sensor;
 //Heart Rate
 #define RECORDING_TIME  5000000         //Recording time for heart rate (5 seconds)
 #define SIZE  RECORDING_TIME/10000      //Vector size equal recording time divided by 10
-#define ALPHA_VAL_DCR     0.95          //DC filter alpha value
+#define ALPHA_DCR     0.95              //DC filter alpha value
 #define SAMPLE_SIZE  100                //Mean difference filter sample size used to calculate the running mean difference
 
 //Variables store raw RED and IR values
 uint16_t raw_IR_Val = 0;
 uint16_t raw_RED_Val = 0;
-double IR_Val = 0;
-double RED_Val = 0;
 double IR_vec[SIZE]; //IR LED Vector for x sec
 double RED_vec[SIZE]; //IR LED Vector for x sec
-
 //------------------------------------------
-//DC remover:
-float output_DCR = 0;
-float prev_output = 0;
+//DC Removal variables:
+double prev_filtered = 0;
 //------------------------------------------
 //Mean Difference variables:
 float MeanDiff_TV[SAMPLE_SIZE];     // Trailling measurements
@@ -97,16 +94,69 @@ void loop() {
   }
   sensor.shutdown();
   //-----------------------Processing raw values-----------------------------------
+  double DCR_IR_vec[sizeof(IR_vec)];
+  float MDF_IR_vec[sizeof(IR_vec)];
+  float LPF_IR_vec[sizeof(IR_vec)];
+  for (int i = 0; i < sizeof(IR_vec); i++)
+    {
+      DCR_IR_vec[i] = DCR_function(IR_vec[i], ALPHA_DCR);
+      MDF_IR_vec[i] = MDF_function(DCR_IR_vec[i]);
+      LPF_IR_vec[i] = Butterworth_LPF_function(MDF_IR_vec[i]);
+    }
+
   delay(5000);
   Serial.println(a);
-  // for (int i = 0; i < sizeof(IR_vec); i++)
-  // {
-  //   Serial.println(IR_vec[i]);
-  // }
-  Serial.println("end");
+  for (int i = 0; i < sizeof(IR_vec); i++)
+  {
+     Serial.println(LPF_IR_vec[i]);
+  }
+  //Serial.println("end");
   //delay(1000);
   sensor.resume();
 
 }
 
+//-------------------------Functions------------------------------------------------
+//DC Removeral filter
+double DCR_function(double raw_input, float alpha) 
+{  
+  double filtered = raw_input + alpha * prev_filtered;
+  double output_DCR = filtered - prev_filtered;
+  prev_filtered = filtered;   
+  return output_DCR;
+}
+// Mean difference filter
+float MDF_function(float raw_input) 
+{
+  float avg = 0; 
 
+  sum -= MeanDiff_TV[Index];
+  MeanDiff_TV[Index] = raw_input;
+  sum += MeanDiff_TV[Index];  
+
+  Index++;
+  Index = Index % SAMPLE_SIZE;
+
+  if (count < SAMPLE_SIZE) 
+  {
+    count++;
+  }
+
+  avg = sum / count;
+  return avg - raw_input;
+}
+
+//Low pass filter (Butterworth filter)
+float Butterworth_LPF_function(float raw_input) 
+{
+
+  //Second order low pass filter
+  Val[0] = Val[1];
+  Val[1] = Val[2];
+
+  //Fs = 100Hz (sample rate) and Fc = 10Hz (cut-off frequency)
+  Val[2] = (6.745527388907189559e-2 * raw_input) + (-0.41280159809618854894 * Val[0]) + (1.14298050253990091107 * Val[1]);
+  BWF_output = (Val[0] + Val[2]) + 2*Val[1];
+  
+  return BWF_output;
+}
