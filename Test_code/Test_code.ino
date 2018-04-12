@@ -45,26 +45,11 @@ void setup() {
   //Wire.begin();
   //myTempSensor.begin();
   //-----------------------------------------------
-
+  
   //MAX30100 (HR and SpO2) senesor:----------------
-  Serial.print("Initializing MAX30100..");
-  // Initialize the sensor
-  // Failures are generally due to an improper I2C wiring, missing power supply
-  // or wrong target chip
-  if (!sensor.begin()) {
-    Serial.println("FAILED");
-    for (;;);
-  } else {
-    Serial.println("SUCCESS");
-  }
-  Serial.println("MAX30100 HR and SpO2 Sensor");
-  sensor.setMode(MAX30100_MODE_SPO2_HR);          //setting sensor mode (HR and SpO2)
-  sensor.setLedsCurrent(IR_current, RED_current); //Set led's current IR and Red respectively
-  sensor.setLedsPulseWidth(Pulse_width);          //Set led's pulse width
-  sensor.setSamplingRate(Sample_Rate);            //set sample rate
-  sensor.setHighresModeEnabled(Highres_mode);     //set high resolution
-  sensor.resetFifo();                             //rest fifo register
+  MAX30100_Startup();
   //-----------------------------------------------
+
 }
 
 void loop() {
@@ -97,6 +82,26 @@ void loop() {
   }
   sensor.shutdown();
   //-----------------------Processing raw values-----------------------------------
+  // Slope Sum function (SSF):
+
+  // int w = 10;               //length of analyzing window 
+  // int N_samples = SIZE/w;   //Number of samples in a recording
+  // float SSF_output[SIZE];   //SSF output vector
+
+  // for(int i = 1; i <= w; i++)
+  // {
+  //   float delta_input = Filtered_IR_vec[i] - Filtered_IR_vec[i-1];
+  //   if (delta_input > 0)
+  //   {
+  //     SSF_output[i] = Filtered_IR_vec[i] + delta_input;
+  //   }
+  //   else 
+  //   {
+  //     SSF_output[i] = Filtered_IR_vec[i]
+  //   }
+  // }
+
+
   //delay(5000);
   Serial.println(a);
   // for (int i = 0; i < sizeof(IR_vec); i++)
@@ -105,8 +110,29 @@ void loop() {
   // }
   //Serial.println("end");
   delay(4000);
-  sensor.resume();
+  MAX30100_Startup();
 
+}
+
+//-------------------------MAX30100-------------------------------------------------
+void MAX30100_Startup()
+{
+  Serial.print("Initializing MAX30100..");
+  // Initialize the sensor
+  // Failures are generally due to an improper I2C wiring, missing power supply or wrong target chip
+  if (!sensor.begin()) {
+    Serial.println("FAILED");
+    for (;;);
+  } else {
+    Serial.println("SUCCESS");
+  }
+  Serial.println("MAX30100 HR and SpO2 Sensor");
+  sensor.setMode(MAX30100_MODE_SPO2_HR);          //setting sensor mode (HR and SpO2)
+  sensor.setLedsCurrent(IR_current, RED_current); //Set led's current IR and Red respectively
+  sensor.setLedsPulseWidth(Pulse_width);          //Set led's pulse width
+  sensor.setSamplingRate(Sample_Rate);            //set sample rate
+  sensor.setHighresModeEnabled(Highres_mode);     //set high resolution
+  sensor.resetFifo();                             //rest fifo register 
 }
 
 //-------------------------Functions------------------------------------------------
@@ -148,3 +174,4 @@ float Butterworth_LPF_function(float raw_input)
   //Serial.println(BWF_output);  
   return BWF_output;
 }
+

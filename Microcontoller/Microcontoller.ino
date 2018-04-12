@@ -136,9 +136,9 @@ void loop() {
     IR_Val = MeanDifference_F(IR_Val);                      //Mean difference filter
     IR_Val = Butterworth_LPF(IR_Val);                       //Low pass filter (butterworth filter
     //Beat Detection:
-    IR_Val = SSF_function(IR_Val);
-    Threshold_val = ATF_function(IR_Val);
-    BPM = PDF_function(IR_Val, Threshold_val);
+    //IR_Val = SSF_function(IR_Val);
+    //Threshold_val = ATF_function(IR_Val);
+    //BPM = PDF_function(IR_Val, Threshold_val);
     Serial.println(BPM);
     //Serial.print(IR_Val);
     //Serial.print(",");
