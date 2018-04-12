@@ -84,11 +84,10 @@ void loop() {
   // Slope Sum function (SSF):
 
   int w = 10;                                   //length of analyzing window 
-  int Samples_size = sizeof(Filtered_IR_vec);   //Number of samples in a recording
   float SSF = 0;                                //summation in window period
-  float SSF_output[Samples_size];               //SSF output vector
+  float SSF_output[SIZE];               //SSF output vector
 
-  for(int i = 0; i < Samples_size; i++)
+  for(int i = 0; i < SIZE; i++)
   {
     if (i <= w)
     {
@@ -112,8 +111,8 @@ void loop() {
 
 
   //delay(5000);
-  Serial.println(i);
-  // for (int i = 0; i < Samples_size; i++)
+  // Serial.println(i);
+  // for (int i = 0; i < SIZE; i++)
   // {
   //    Serial.println(Filtered_IR_vec[i]);
   // }
