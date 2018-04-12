@@ -72,7 +72,7 @@ void loop() {
       Filtered_IR_vec[i] = MDF_function(Filtered_IR_vec[i]);
       Filtered_IR_vec[i] = Butterworth_LPF_function(Filtered_IR_vec[i]);
       //Serial.print(" | ");
-      Serial.println(Filtered_IR_vec[i]); 
+      //Serial.println(Filtered_IR_vec[i]); 
       // Serial.print(" | ");
       // Serial.println(micros()); 
       i++;
@@ -83,29 +83,39 @@ void loop() {
   //-----------------------Processing raw values-----------------------------------
   // Slope Sum function (SSF):
 
-  // int w = 10;               //length of analyzing window 
-  // int N_samples = SIZE/w;   //Number of samples in a recording
-  // float SSF_output[SIZE];   //SSF output vector
+  int w = 10;                                   //length of analyzing window 
+  int Samples_size = sizeof(Filtered_IR_vec);   //Number of samples in a recording
+  float SSF = 0;                                //summation in window period
+  float SSF_output[Samples_size];               //SSF output vector
 
-  // for(int i = 1; i <= w; i++)
-  // {
-  //   float delta_input = Filtered_IR_vec[i] - Filtered_IR_vec[i-1];
-  //   if (delta_input > 0)
-  //   {
-  //     SSF_output[i] = SSF_output[i] + delta_input;
-  //   }
-  //   else 
-  //   {
-  //     SSF_output[i] = Filtered_IR_vec[i];
-  //   }
-  // }
+  for(int i = 0; i < Samples_size; i++)
+  {
+    if (i <= w)
+    {
+      SSF_output[i] = 0;      
+    }
+    else
+    {
+      for (int x = w; x >= 0; x--)
+      {
+        SSF = 0;
+        float delta_input = Filtered_IR_vec[i-w] - Filtered_IR_vec[(i-w)-1];
+        if (delta_input > 0)
+        {
+          SSF += delta_input;          
+        }
+      }
+      SSF_output[i] = SSF;
+    }    
+    Serial.println(SSF_output[i]);
+  }
 
 
   //delay(5000);
   Serial.println(i);
-  // for (int i = 0; i < sizeof(IR_vec); i++)
+  // for (int i = 0; i < Samples_size; i++)
   // {
-  //    Serial.println(LPF_IR_vec[i]);
+  //    Serial.println(Filtered_IR_vec[i]);
   // }
   //Serial.println("end");
   delay(4000);
