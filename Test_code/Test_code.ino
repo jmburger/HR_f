@@ -23,8 +23,6 @@ MAX30100 sensor;
 //Variables store raw RED and IR values
 uint16_t raw_IR_Val = 0;
 uint16_t raw_RED_Val = 0;
-double IR_vec[SIZE]; //IR LED Vector for x sec
-double RED_vec[SIZE]; //IR LED Vector for x sec
 float Filtered_IR_vec[SIZE]; //filtered IR vector for x sec
 //-------------FILTER Variables-------------
 //DC Removal variables:
@@ -68,12 +66,9 @@ void loop() {
     // if raw data is available and sensor is warmed up
     if (sensor.getRawValues(&raw_IR_Val, &raw_RED_Val) && delta_time > WARM_UP_TIME)
     {
-      //Serial.print(raw_IR_Val);  
-      //raw ifrared and red led values
-      IR_vec[i] = raw_IR_Val;
-      RED_vec[i] = raw_RED_Val;
+      //Serial.print(raw_IR_Val);           
       //add filtering to raw values:
-      Filtered_IR_vec[i] = DCR_function(IR_vec[i], ALPHA_DCR);
+      Filtered_IR_vec[i] = DCR_function(raw_IR_Val, ALPHA_DCR);
       Filtered_IR_vec[i] = MDF_function(Filtered_IR_vec[i]);
       Filtered_IR_vec[i] = Butterworth_LPF_function(Filtered_IR_vec[i]);
       //Serial.print(" | ");
@@ -97,11 +92,11 @@ void loop() {
   //   float delta_input = Filtered_IR_vec[i] - Filtered_IR_vec[i-1];
   //   if (delta_input > 0)
   //   {
-  //     SSF_output[i] = Filtered_IR_vec[i] + delta_input;
+  //     SSF_output[i] = SSF_output[i] + delta_input;
   //   }
   //   else 
   //   {
-  //     SSF_output[i] = Filtered_IR_vec[i]
+  //     SSF_output[i] = Filtered_IR_vec[i];
   //   }
   // }
 
@@ -143,7 +138,7 @@ void MAX30100_Startup()
 
 //-------------------------Functions------------------------------------------------
 //DC Removeral filter
-double DCR_function(double raw_input, float alpha) 
+float DCR_function(double raw_input, float alpha) 
 {  
   float filtered = raw_input + alpha * prev_filtered;
   float output_DCR = filtered - prev_filtered;
