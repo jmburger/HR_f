@@ -14,10 +14,11 @@ MAX30100 sensor;
 #define Highres_mode    true                            //High resolution mode
 
 //Heart Rate
-#define RECORDING_TIME  5000000         //Recording time for heart rate (5 seconds)
+#define WARM_UP_TIME 1000000            //Warm up time for MAX30100 sensor (1 seconds)
+#define RECORDING_TIME  8000000         //Recording time for heart rate (8 seconds)
 #define SIZE  RECORDING_TIME/10000      //Vector size equal recording time divided by 10
-#define ALPHA_DCR     0.75              //DC filter alpha value
-#define SAMPLE_SIZE  100                //Mean difference filter sample size used to calculate the running mean difference
+#define ALPHA_DCR     0.9               //DC filter alpha value
+#define SAMPLE_SIZE   100               //Mean difference filter sample size used to calculate the running mean difference
 
 //Variables store raw RED and IR values
 uint16_t raw_IR_Val = 0;
@@ -47,40 +48,52 @@ void setup() {
   //-----------------------------------------------
   
   //MAX30100 (HR and SpO2) senesor:----------------
-  MAX30100_Startup();
+  MAX30100_Startup();  //Start up MAX30100 sensor  
   //-----------------------------------------------
 
 }
 
 void loop() {
-  //-----------HR & SpO2 Sensor-------------
-  //----------------------------------------
-  int a = 0;                        //Counter
-  int delta_time = 0;               //zero remaining time 
-  int start_time = micros();        //starting time when enter while loop
+  //-------------------------------------------------------------------------------
+  //-----------------------HR & SpO2 (MAX30100) Sensor-----------------------------
+  //-------------------------------------------------------------------------------  
+  //-----------------------Warm MAX30100 Sensor up---------------------------------
+  // int i = 0;                        //Counter
+  // int delta_time = 0;               //zero remaining time 
+  // int start_time = micros();        //starting time when enter while loop
+  // while (delta_time <= WARM_UP_TIME)
+  // {
+  //   sensor.update();
+  //   delta_time = micros() - start_time;   //update remaining time
+  // }
   //-----------------------Reading raw sensor values-------------------------------
-  while (delta_time < RECORDING_TIME)
+  int i = 0;                                      //Counter
+  int Total_time = WARM_UP_TIME + RECORDING_TIME; //Toatl time sensor must run
+  int delta_time = 0;                             //zero remaining time 
+  int start_time = micros();                      //starting time when enter while loop
+  while (delta_time <= Total_time)
   {     
     sensor.update();
-    if (sensor.getRawValues(&raw_IR_Val, &raw_RED_Val))
+    // if raw data is available and sensor is warmed up
+    if (sensor.getRawValues(&raw_IR_Val, &raw_RED_Val) && delta_time > WARM_UP_TIME)
     {
       //Serial.print(raw_IR_Val);  
       //raw ifrared and red led values
-      IR_vec[a] = raw_IR_Val;
-      RED_vec[a] = raw_RED_Val;
+      IR_vec[i] = raw_IR_Val;
+      RED_vec[i] = raw_RED_Val;
       //add filtering to raw values:
-      Filtered_IR_vec[a] = DCR_function(IR_vec[a], ALPHA_DCR);
-      Filtered_IR_vec[a] = MDF_function(Filtered_IR_vec[a]);
-      Filtered_IR_vec[a] = Butterworth_LPF_function(Filtered_IR_vec[a]);
+      Filtered_IR_vec[i] = DCR_function(IR_vec[i], ALPHA_DCR);
+      Filtered_IR_vec[i] = MDF_function(Filtered_IR_vec[i]);
+      Filtered_IR_vec[i] = Butterworth_LPF_function(Filtered_IR_vec[i]);
       //Serial.print(" | ");
-      //Serial.print(Filtered_IR_vec[a]); 
+      Serial.println(Filtered_IR_vec[i]); 
       // Serial.print(" | ");
       // Serial.println(micros()); 
-      a++;
+      i++;
     }
     delta_time = micros() - start_time;   //update remaining time 
   }
-  sensor.shutdown();
+  sensor.shutdown();  // Shut down MAX30100 sensor
   //-----------------------Processing raw values-----------------------------------
   // Slope Sum function (SSF):
 
@@ -103,30 +116,32 @@ void loop() {
 
 
   //delay(5000);
-  Serial.println(a);
+  Serial.println(i);
   // for (int i = 0; i < sizeof(IR_vec); i++)
   // {
   //    Serial.println(LPF_IR_vec[i]);
   // }
   //Serial.println("end");
   delay(4000);
-  MAX30100_Startup();
+  MAX30100_Startup();     //Start up MAX30100 sensor
+  
+
 
 }
 
 //-------------------------MAX30100-------------------------------------------------
 void MAX30100_Startup()
 {
-  Serial.print("Initializing MAX30100..");
+  //Serial.print("Initializing MAX30100..");
   // Initialize the sensor
   // Failures are generally due to an improper I2C wiring, missing power supply or wrong target chip
   if (!sensor.begin()) {
     Serial.println("FAILED");
     for (;;);
   } else {
-    Serial.println("SUCCESS");
+  //  Serial.println("SUCCESS");
   }
-  Serial.println("MAX30100 HR and SpO2 Sensor");
+  //Serial.println("MAX30100 HR and SpO2 Sensor");
   sensor.setMode(MAX30100_MODE_SPO2_HR);          //setting sensor mode (HR and SpO2)
   sensor.setLedsCurrent(IR_current, RED_current); //Set led's current IR and Red respectively
   sensor.setLedsPulseWidth(Pulse_width);          //Set led's pulse width
@@ -142,7 +157,7 @@ double DCR_function(double raw_input, float alpha)
   float filtered = raw_input + alpha * prev_filtered;
   float output_DCR = filtered - prev_filtered;
   prev_filtered = filtered;  
-  Serial.println(output_DCR); 
+  //Serial.println(output_DCR); 
   return output_DCR;
 }
 // Mean difference filter

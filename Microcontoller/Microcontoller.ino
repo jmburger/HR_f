@@ -139,7 +139,7 @@ void loop() {
     //IR_Val = SSF_function(IR_Val);
     //Threshold_val = ATF_function(IR_Val);
     //BPM = PDF_function(IR_Val, Threshold_val);
-    Serial.println(BPM);
+    Serial.println(IR_Val);
     //Serial.print(IR_Val);
     //Serial.print(",");
     //Serial.println();
