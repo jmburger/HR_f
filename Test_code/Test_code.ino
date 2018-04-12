@@ -57,15 +57,6 @@ void loop() {
   //-------------------------------------------------------------------------------
   //-----------------------HR & SpO2 (MAX30100) Sensor-----------------------------
   //-------------------------------------------------------------------------------  
-  //-----------------------Warm MAX30100 Sensor up---------------------------------
-  // int i = 0;                        //Counter
-  // int delta_time = 0;               //zero remaining time 
-  // int start_time = micros();        //starting time when enter while loop
-  // while (delta_time <= WARM_UP_TIME)
-  // {
-  //   sensor.update();
-  //   delta_time = micros() - start_time;   //update remaining time
-  // }
   //-----------------------Reading raw sensor values-------------------------------
   int i = 0;                                      //Counter
   int Total_time = WARM_UP_TIME + RECORDING_TIME; //Toatl time sensor must run
