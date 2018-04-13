@@ -14,10 +14,10 @@ MAX30100 sensor;
 #define Highres_mode    true                            //High resolution mode
 
 //Heart Rate
-#define WARM_UP_TIME 1000000            //Warm up time for MAX30100 sensor (1 seconds)
-#define RECORDING_TIME  8000000         //Recording time for heart rate (8 seconds)
+#define WARM_UP_TIME 2000000            //Warm up time for MAX30100 sensor (2 seconds)
+#define RECORDING_TIME  6000000         //Recording time for heart rate (6 seconds)
 #define SIZE  RECORDING_TIME/10000      //Vector size equal recording time divided by 10
-#define ALPHA_DCR     0.9               //DC filter alpha value
+#define ALPHA_DCR     0.95              //DC filter alpha value
 #define SAMPLE_SIZE   100               //Mean difference filter sample size used to calculate the running mean difference
 
 //Variables store raw RED and IR values
@@ -73,21 +73,27 @@ void loop() {
       Filtered_IR_vec[i] = Butterworth_LPF_function(Filtered_IR_vec[i]);
       //Serial.print(" | ");
       //Serial.println(Filtered_IR_vec[i]); 
-      // Serial.print(" | ");
-      // Serial.println(micros()); 
+      //Serial.print(" | ");
+      //Serial.println(micros()); 
       i++;
     }
     delta_time = micros() - start_time;   //update remaining time 
   }
-  sensor.shutdown();  // Shut down MAX30100 sensor
+  sensor.shutdown();                      // Shut down MAX30100 sensor
+  //fill rest of vector vector with zeros
+  //Serial.println(i);
+  while (i <= SIZE)                       
+  {
+    Filtered_IR_vec[i] = 0;
+    i++;
+  }
   //-----------------------Processing raw values-----------------------------------
   // Slope Sum function (SSF):
-
   int w = 10;                                   //length of analyzing window 
   float SSF = 0;                                //summation in window period
-  float SSF_output[SIZE];               //SSF output vector
+  float SSF_output[SIZE];                       //SSF output vector
 
-  for(int i = 0; i < SIZE; i++)
+  for (int i = 0; i < SIZE; i++)
   {
     if (i <= w)
     {
@@ -106,25 +112,37 @@ void loop() {
       }
       SSF_output[i] = SSF;
     }    
-    Serial.println(SSF_output[i]);
+    //Serial.print(SSF_output[i]);    
+  }
+  //addaptive threshold function (ATF):
+  int Alpha_ATF = 1; 
+  float ATF_output[SIZE];                       //ATF output vector
+  for (int i = 0; i < SIZE; i++)
+  {
+    if (i == 0)
+    {
+      ATF_output[i] = 0;
+    }
+    else
+    {
+      ATF_output[i] = Alpha_ATF*((SSF_output[i] + SSF_output[i-1])/3);
+    }
+    //Serial.println(ATF_output[i]);
   }
 
-
-  //delay(5000);
-  // Serial.println(i);
-  // for (int i = 0; i < SIZE; i++)
-  // {
-  //    Serial.println(Filtered_IR_vec[i]);
-  // }
+  //delay(5000);  
+  for (int i = 0; i < SIZE; i++)
+  {
+    Serial.print(SSF_output[i]); 
+    Serial.print(" | ");
+    Serial.println(ATF_output[i]);
+  }
   //Serial.println("end");
   delay(4000);
   MAX30100_Startup();     //Start up MAX30100 sensor
-  
-
-
 }
 
-//-------------------------MAX30100-------------------------------------------------
+//-------------------------MAX30100 START UP-----------------------------------------
 void MAX30100_Startup()
 {
   //Serial.print("Initializing MAX30100..");
@@ -144,7 +162,6 @@ void MAX30100_Startup()
   sensor.setHighresModeEnabled(Highres_mode);     //set high resolution
   sensor.resetFifo();                             //rest fifo register 
 }
-
 //-------------------------Functions------------------------------------------------
 //DC Removeral filter
 float DCR_function(double raw_input, float alpha) 
@@ -184,4 +201,5 @@ float Butterworth_LPF_function(float raw_input)
   //Serial.println(BWF_output);  
   return BWF_output;
 }
+//----------------------------------------------------------------------------------
 
