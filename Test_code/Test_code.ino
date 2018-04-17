@@ -21,6 +21,7 @@ MAX30100 sensor;
 #define SAMPLE_SIZE   100               //Mean difference filter sample size used to calculate the running mean difference
 #define PEAK_PERIOD   3                 //Length of peak period 
 #define ALPHA_ATF     0.5               //Adaptive threshold function (ATF)
+#define BEAT_WINDOW   10                //Number of beats in beat window
 
 //Variables store raw RED and IR values
 uint16_t raw_IR_Val = 0;
@@ -36,12 +37,15 @@ uint8_t count = 0;
 float sum = 0;
 //Low pass filter (butterworth filter) variables:
 float Val[3];
-//--------------Variables-------------------
- //Adaptive threshold initial value
+//-------Beat detection Variables------------
+ //Adaptive threshold initial value:
 int ATF_initial = 10;
 uint8_t Peak_index = 0;                       //Adaptive threshold index 
 float Peak_Hieght[PEAK_PERIOD];               //Store peak period's hieght values 
-float ATF[SIZE];                              //ATF output vector                        
+float ATF[SIZE];                              //ATF output vector  
+//Time between beats: 
+uint8_t Beat_index = 0;                       //Beat time index
+int Delta_beat_time[BEAT_WINDOW];             //Delat time between peaks vector                          
 //------------------------------------------
 
 void setup() {
@@ -124,13 +128,37 @@ void loop() {
   }
   // Beat Detection:
   int Peak_number = 0;                        //Count number of peaks(heart beats)
+  int Beat_time = 0;                          //Beat time value
+  int Prev_beat_time = 0;                     //Prev beat time value  
+  float Avg_beat_time = 0;                    //Average delat beat time of beat period
   for (int i = 0; i < SIZE; i++)
   {
-    if (Peak_number < PEAK_PERIOD)
+    if (i > 3 && SSF_output[i] > ATF[i] && SSF_output[i-2] < SSF_output[i-1] && SSF_output[i-1] >= SSF_output[i])
     {
-      ATF[i] = ATF_initial;                     //Intial value of adaptive threshold
+      Peak_Hieght[Peak_index] = SSF_output[i];
+      Peak_index++;
+      Peak_index = Peak_index % PEAK_PERIOD;
+      Peak_number++;
+      Prev_beat_time = Beat_time;                                     //Ending time of beat
+      Beat_time = micros();                                           //Starting time of beat
+    }
+    //Calculating time between beats:
+    Delta_beat_time[Beat_index] = (Beat_time - Prev_beat_time);       //Time between beats    
+    if (Peak_number >= BEAT_WINDOW)
+    {
+      for (int a = 0; a < BEAT_WINDOW; a++)
+      {
+        Avg_beat_time += Delta_beat_time[a];                      //Sum beat windows delta beat times
+      }
+      Avg_beat_time = Avg_beat_time/BEAT_WINDOW;                      //Average delta beat time
+      Beat_index++;
+      Beat_index = Beat_index % BEAT_WINDOW;
     }
     //Adaptive threshold on past three peak values:
+    if (Peak_number < PEAK_PERIOD)
+    {
+      ATF[i] = ATF_initial;                           //Intial value of adaptive threshold
+    }
     if (Peak_number >= PEAK_PERIOD)
     {
       float Peak_tot = 0;
@@ -151,13 +179,7 @@ void loop() {
         ATF[i] = ATF_initial;
       }   
     }
-    if (i > 3 && SSF_output[i] > ATF[i] && SSF_output[i-2] < SSF_output[i-1] && SSF_output[i-1] >= SSF_output[i])
-    {
-      Peak_Hieght[Peak_index] = SSF_output[i];
-      Peak_index++;
-      Peak_index = Peak_index % PEAK_PERIOD;
-      Peak_number++;
-    }    
+    
     Serial.print(SSF_output[i]); 
     Serial.print(",");
     Serial.println(ATF[i]);
