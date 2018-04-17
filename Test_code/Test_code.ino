@@ -114,6 +114,15 @@ void loop() {
     }    
     //Serial.print(SSF_output[i]);    
   }
+  // Beat Detection:
+  int Peak_number = 0;
+  for (int i = 0; i < SIZE; i++)
+  {
+    if (i > 3 && SSF_output[i-2] < SSF_output[i-1] && SSF_output[i-1] >= SSF_output[i])
+    {
+      Peak_number++;
+    }
+  }
   //addaptive threshold function (ATF):
   int Alpha_ATF = 1; 
   float ATF_output[SIZE];                       //ATF output vector
@@ -133,11 +142,11 @@ void loop() {
   //delay(5000);  
   for (int i = 0; i < SIZE; i++)
   {
-    Serial.print(SSF_output[i]); 
-    Serial.print(" | ");
-    Serial.println(ATF_output[i]);
+    Serial.println(SSF_output[i]); 
+    //Serial.println(" | ");
+    //Serial.println(ATF_output[i]);
   }
-  //Serial.println("end");
+  Serial.println("end");
   delay(4000);
   MAX30100_Startup();     //Start up MAX30100 sensor
 }
@@ -196,7 +205,11 @@ float Butterworth_LPF_function(float raw_input)
   Val[0] = Val[1];
   Val[1] = Val[2];
   //Fs = 100Hz (sample rate) and Fc = 10Hz (cut-off frequency)
-  Val[2] = (6.745527388907189559e-2 * raw_input) + (-0.41280159809618854894 * Val[0]) + (1.14298050253990091107 * Val[1]);
+  //Val[2] = (6.745527388907189559e-2 * raw_input) + (-0.41280159809618854894 * Val[0]) + (1.14298050253990091107 * Val[1]);
+  //Fs = 100Hz (sample rate) and Fc = 5Hz (cut-off frequency)
+  Val[2] = (2.008336556421122521e-2 * raw_input) + (-0.64135153805756306422 * Val[0]) + (1.56101807580071816339 * Val[1]);
+  //Fs = 100Hz (sample rate) and Fc = 3Hz (cut-off frequency)
+  //Val[2] = (7.820208033497201908e-3 * raw_input) + (-0.76600660094326400440 * Val[0]) + (1.73472576880927520371 * Val[1]);
   float BWF_output = (Val[0] + Val[2]) + 2*Val[1];
   //Serial.println(BWF_output);  
   return BWF_output;
