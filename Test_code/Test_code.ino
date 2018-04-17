@@ -15,7 +15,7 @@ MAX30100 sensor;
 
 //Heart Rate
 #define WARM_UP_TIME 2000000            //Warm up time for MAX30100 sensor (2 seconds)
-#define RECORDING_TIME  6000000         //Recording time for heart rate (6 seconds)
+#define RECORDING_TIME  5000000         //Recording time for heart rate (5 seconds)
 #define SIZE  RECORDING_TIME/10000      //Vector size equal recording time divided by 10
 #define ALPHA_DCR     0.95              //DC filter alpha value
 #define SAMPLE_SIZE   100               //Mean difference filter sample size used to calculate the running mean difference
@@ -41,8 +41,7 @@ float Val[3];
 int ATF_initial = 10;
 uint8_t Peak_index = 0;                       //Adaptive threshold index 
 float Peak_Hieght[PEAK_PERIOD];               //Store peak period's hieght values 
-float ATF[SIZE];                              //ATF output vector
-int Peak_number = 0;                          //Count number of peaks(heart beats)
+float ATF[SIZE];                              //ATF output vector                        
 //------------------------------------------
 
 void setup() {
@@ -124,8 +123,7 @@ void loop() {
     //Serial.print(SSF_output[i]);    
   }
   // Beat Detection:
-  //int Peak_number = 0;                          //Count number of peaks(heart beats)
-
+  int Peak_number = 0;                        //Count number of peaks(heart beats)
   for (int i = 0; i < SIZE; i++)
   {
     if (Peak_number < PEAK_PERIOD)
@@ -140,14 +138,18 @@ void loop() {
       {
         Peak_tot += Peak_Hieght[a];
       }
-      if (Peak_tot < PEAK_PERIOD)
+      if (Peak_tot < PEAK_PERIOD)                     //Not to divide with a number smaller than the peak period
       {
         ATF[i] = ATF[i-1];                            //eliminate high values during start up
       }
       else 
       {
         ATF[i] = ALPHA_ATF*(Peak_tot/PEAK_PERIOD);    //new adaptive threshold
-      }    
+      }
+      if (ATF[i] > ATF_initial*3)                     //Eliminate high peaks
+      {
+        ATF[i] = ATF_initial;
+      }   
     }
     if (i > 3 && SSF_output[i] > ATF[i] && SSF_output[i-2] < SSF_output[i-1] && SSF_output[i-1] >= SSF_output[i])
     {
@@ -160,8 +162,8 @@ void loop() {
     Serial.print(",");
     Serial.println(ATF[i]);
   }
-  ATF_initial = ATF[i-1];   //Redefine initial adaptive threshold value
-  //Serial.println(Peak_number);
+  ATF_initial = ATF[SIZE-1];   //Redefine initial adaptive threshold value
+  Serial.println(Peak_number);
   //delay(5000);  
 /*  for (int i = 0; i < SIZE; i++)
   {
