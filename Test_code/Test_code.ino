@@ -141,9 +141,12 @@ void loop() {
       Peak_number++;
       Prev_beat_time = Beat_time;                                     //Ending time of beat
       Beat_time = micros();                                           //Starting time of beat
-    }
-    //Calculating time between beats:
-    Delta_beat_time[Beat_index] = (Beat_time - Prev_beat_time);       //Time between beats    
+      if (Peak_number != 1)
+      {
+        //Calculating time between beats:
+        Delta_beat_time[Beat_index] = (Beat_time - Prev_beat_time);       //Time between beats
+      }
+    }    
     if (Peak_number >= BEAT_WINDOW)
     {
       for (int a = 0; a < BEAT_WINDOW; a++)
@@ -179,6 +182,15 @@ void loop() {
         ATF[i] = ATF_initial;
       }   
     }
+    //Beats per minutes:
+    int BPM = (60000000/RECORDING_TIME)*Peak_number;      
+
+    //Heart rate varability:
+    for (i = 0; i < Peak_number; i++)
+    {
+      Total_delta_beat_time += Delta_beat_time[i];      //Calculating total beat time over recording period
+    }
+    float HR_Varabilirty = Total_delta_beat_time/Peak_number;            //Calculating average beat time (peak to peak) over the recording period
     
     Serial.print(SSF_output[i]); 
     Serial.print(",");
