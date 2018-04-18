@@ -131,6 +131,7 @@ void loop() {
   int Beat_time = 0;                          //Beat time value
   int Prev_beat_time = 0;                     //Prev beat time value  
   float Avg_beat_time = 0;                    //Average delat beat time of beat period
+  int Total_delta_beat_time = 0;              //Total beat time over recording period 
   for (int i = 0; i < SIZE; i++)
   {
     if (i > 3 && SSF_output[i] > ATF[i] && SSF_output[i-2] < SSF_output[i-1] && SSF_output[i-1] >= SSF_output[i])
