@@ -15,13 +15,14 @@ MAX30100 sensor;
 
 //Heart Rate
 #define WARM_UP_TIME 2000000            //Warm up time for MAX30100 sensor (2 seconds)
-#define RECORDING_TIME  5000000         //Recording time for heart rate (5 seconds)
+#define RECORDING_TIME  20000000         //Recording time for heart rate (5 seconds)
 #define SIZE  RECORDING_TIME/10000      //Vector size equal recording time divided by 10
 #define ALPHA_DCR     0.95              //DC filter alpha value
 #define SAMPLE_SIZE   100               //Mean difference filter sample size used to calculate the running mean difference
 #define PEAK_PERIOD   3                 //Length of peak period 
 #define ALPHA_ATF     0.5               //Adaptive threshold function (ATF)
 #define BEAT_WINDOW   10                //Number of beats in beat window
+#define BEAT_ALPHA    0.7               //Reject fasle peaks time bound (Value for Andre)
 
 //Variables store raw RED and IR values
 uint16_t raw_IR_Val = 0;
@@ -45,7 +46,9 @@ float Peak_Hieght[PEAK_PERIOD];               //Store peak period's hieght value
 float ATF[SIZE];                              //ATF output vector  
 //Time between beats: 
 uint8_t Beat_index = 0;                       //Beat time index
-int Delta_beat_time[BEAT_WINDOW];             //Delat time between peaks vector                          
+int Delta_beat_time[BEAT_WINDOW];             //Delat time between peaks vector 
+int Avg_BT = 0;                               //Average beat time over recorded time
+bool Warm_up = false;                      
 //------------------------------------------
 
 void setup() {
@@ -71,12 +74,12 @@ void loop() {
   int i = 0;                                      //Counter
   int Total_time = WARM_UP_TIME + RECORDING_TIME; //Toatl time sensor must run
   int delta_time = 0;                             //zero remaining time 
-  int start_time = micros();                      //starting time when enter while loop
+  int start_time = micros();                      //starting time when enter while loop 
   while (delta_time <= Total_time)
   {     
     sensor.update();
-    // if raw data is available and sensor is warmed up
-    if (sensor.getRawValues(&raw_IR_Val, &raw_RED_Val) && delta_time > WARM_UP_TIME)
+    // if raw data is available 
+    if (sensor.getRawValues(&raw_IR_Val, &raw_RED_Val))
     {
       //Serial.print(raw_IR_Val);           
       //add filtering to raw values:
@@ -88,6 +91,12 @@ void loop() {
       //Serial.print(" | ");
       //Serial.println(micros()); 
       i++;
+    }
+    //Warm up sensor:
+    if (delta_time >= WARM_UP_TIME && Warm_up != true)
+    {
+      i=0;
+      Warm_up = true;
     }
     delta_time = micros() - start_time;   //update remaining time 
   }
@@ -104,7 +113,6 @@ void loop() {
   int w = 10;                                   //length of analyzing window 
   float SSF = 0;                                //summation in window period
   float SSF_output[SIZE];                       //SSF output vector
-
   for (int i = 0; i < SIZE; i++)
   {
     if (i <= w)
@@ -124,19 +132,23 @@ void loop() {
       }
       SSF_output[i] = SSF;
     }    
-    //Serial.print(SSF_output[i]);    
+    //Serial.println(SSF_output[i]);    
   }
   // Beat Detection:
   int Peak_number = 0;                        //Count number of peaks(heart beats)
   int Beat_time = 0;                          //Beat time value
   int Prev_beat_time = 0;                     //Prev beat time value  
-  float Avg_beat_time = 0;                    //Average delat beat time of beat period
+  int Avg_beat_time = 0;                      //Average delat beat time of beat period
   int Total_delta_beat_time = 0;              //Total beat time over recording period 
+  int Avg_BT = 1;                             //Current average beat time  
+  int Prev_avg_BT = 0;                        //Previous average beat time
   for (int i = 0; i < SIZE; i++)
   {
-    if (i > 3 && SSF_output[i] > ATF[i] && SSF_output[i-2] < SSF_output[i-1] && SSF_output[i-1] >= SSF_output[i])
+    if (i > 3 && SSF_output[i] > ATF[i-1] && Avg_BT >= BEAT_ALPHA*Prev_avg_BT && SSF_output[i-2] < SSF_output[i-1] && SSF_output[i-1] >= SSF_output[i])
     {
       Peak_Hieght[Peak_index] = SSF_output[i];
+      Serial.print(SSF_output[i]);
+      Serial.print(",");
       Peak_index++;
       Peak_index = Peak_index % PEAK_PERIOD;
       Peak_number++;
@@ -152,9 +164,10 @@ void loop() {
     {
       for (int a = 0; a < BEAT_WINDOW; a++)
       {
-        Avg_beat_time += Delta_beat_time[a];                      //Sum beat windows delta beat times
+        Avg_beat_time += Delta_beat_time[a];                  //Sum beat windows delta beat times
       }
-      Avg_beat_time = Avg_beat_time/BEAT_WINDOW;                      //Average delta beat time
+      Prev_avg_BT = Avg_BT;                                   //previous average beat time over recorded time 
+      Avg_BT = Avg_beat_time/BEAT_WINDOW;                     //Average delta beat time
       Beat_index++;
       Beat_index = Beat_index % BEAT_WINDOW;
     }
@@ -187,9 +200,9 @@ void loop() {
     int BPM = (60000000/RECORDING_TIME)*Peak_number;      
 
     //Heart rate varability:
-    for (i = 0; i < Peak_number; i++)
+    for (int a = 0; a < Peak_number; a++)
     {
-      Total_delta_beat_time += Delta_beat_time[i];      //Calculating total beat time over recording period
+      Total_delta_beat_time += Delta_beat_time[a];      //Calculating total beat time over recording period
     }
     float HR_Varabilirty = Total_delta_beat_time/Peak_number;            //Calculating average beat time (peak to peak) over the recording period
     
@@ -198,7 +211,7 @@ void loop() {
     Serial.println(ATF[i]);
   }
   ATF_initial = ATF[SIZE-1];   //Redefine initial adaptive threshold value
-  Serial.println(Peak_number);
+  //Serial.println(Peak_number);
   //delay(5000);  
 /*  for (int i = 0; i < SIZE; i++)
   {
