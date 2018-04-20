@@ -15,7 +15,7 @@ MAX30100 sensor;
 
 //Heart Rate
 #define WARM_UP_TIME 2000000            //Warm up time for MAX30100 sensor (2 seconds)
-#define RECORDING_TIME  10000000         //Recording time for heart rate (30 seconds)
+#define RECORDING_TIME  20000000         //Recording time for heart rate (20 seconds)
 #define SIZE  RECORDING_TIME/10000      //Vector size equal recording time divided by 10
 #define ALPHA_DCR     0.95              //DC filter alpha value
 #define SAMPLE_SIZE   100               //Mean difference filter sample size used to calculate the running mean difference
@@ -137,44 +137,43 @@ void loop() {
   // Beat Detection:
   int Peak_number = 0;                        //Count number of peaks(heart beats)
   int Beat_time = 0;                          //Beat time value
-  int Prev_beat_time = 0;                     //Prev beat time value  
+  int End_beat_time = 0;                      
   int Total_delta_beat_time = 0;              //Total beat time over recording period 
-  float Avg_BT = 0;                  //Current average beat time  
-  float Prev_avg_BT = 0;                      //Previous average beat time
+  float Avg_BT = 0;                           //Current average beat time 
+  int Current_Delta_BT =0;  
   bool Peak_detected = false;                 //If peak is detected = true
   for (int i = 0; i < SIZE; i++)
   {
-    if (i > 3 && SSF_output[i] > ATF[i-1] && Avg_BT >= BEAT_ALPHA*Prev_avg_BT && SSF_output[i-2] < SSF_output[i-1] && SSF_output[i-1] >= SSF_output[i])
+    if (Peak_number > 1 && Peak_detected == true)
+    {
+      //Calculating time between beats:
+      Delta_beat_time[Beat_index] = (Beat_time - End_beat_time);       //Time between beats 
+      Current_Delta_BT = Delta_beat_time[Beat_index];        
+      Beat_index++;
+      Beat_index = Beat_index % BEAT_WINDOW;
+      Peak_detected = false;                                           //Peak detection finished 
+    }
+
+    if (i > 3 && SSF_output[i] > ATF[i-1] && Current_Delta_BT >= BEAT_ALPHA*Avg_BT && SSF_output[i-2] < SSF_output[i-1] && SSF_output[i-1] >= SSF_output[i])
     {
       Peak_Hieght[Peak_index] = SSF_output[i];
-      //Serial.print(SSF_output[i]);      
+      Serial.print(SSF_output[i]);      
       Peak_index++;
       Peak_index = Peak_index % PEAK_PERIOD;
-      Peak_number++;
-      Prev_beat_time = Beat_time;                                     //Ending time of beat
+      Peak_number++; 
+      End_beat_time = Beat_time;                                  //Ending time of beat
       Beat_time = micros();                                           //Starting time of beat
       Peak_detected = true;                                           //New peak has been detected
-      if (Peak_number != 1)
-      {
-        //Calculating time between beats:
-        Delta_beat_time[Beat_index] = (Beat_time - Prev_beat_time);       //Time between beats
-        Beat_index++;
-        Beat_index = Beat_index % BEAT_WINDOW;
-      }
     }    
     if (Peak_number > BEAT_WINDOW && Peak_detected == true)
     {
-      int Avg_beat_time = 0;                      //Average delat beat time of beat period
-      Prev_avg_BT = Avg_BT;                                 //previous average beat time over recorded time
+      int Avg_beat_time = 0;                      //Average delat beat time of beat period      
       for (int a = 0; a < BEAT_WINDOW; a++)
       {
         Avg_beat_time += Delta_beat_time[a];                  //Sum beat windows delta beat times
       }       
-      Avg_BT = Avg_beat_time/BEAT_WINDOW;                     //Average delta beat time      
-      Serial.print(Avg_BT); 
-      Serial.print(",");
-      Serial.println(Prev_avg_BT); 
-      Peak_detected = false;                                              //Peak detection finished 
+      Avg_BT = Avg_beat_time/BEAT_WINDOW;                     //Average delta beat time  
+      //Serial.println(Avg_BT);       
     }
     //Adaptive threshold on past three peak values:
     if (Peak_number < PEAK_PERIOD)
@@ -201,10 +200,10 @@ void loop() {
         ATF[i] = ATF_initial;
       }   
     }
-    //Serial.print(",");
-    //Serial.print(SSF_output[i]); 
-    //Serial.print(",");
-    //Serial.println(ATF[i]);
+    Serial.print(",");
+    Serial.print(SSF_output[i]); 
+    Serial.print(",");
+    Serial.println(ATF[i]);
   }
     //Beats per minutes:
 /*  int BPM = (60000000/RECORDING_TIME)*Peak_number;      
