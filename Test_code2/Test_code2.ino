@@ -28,6 +28,8 @@ MAX30100 sensor;
 uint16_t raw_IR_Val = 0;
 uint16_t raw_RED_Val = 0;
 float Filtered_IR_vec[SIZE]; //filtered IR vector for x sec
+//Warm up sensor:
+bool Warm_up = false;       
 //-------------FILTER Variables-------------
 //DC Removal variables:
 double prev_filtered = 0;
@@ -44,11 +46,8 @@ int ATF_initial = 10;
 uint8_t Peak_index = 0;                       //Adaptive threshold index 
 float Peak_Hieght[PEAK_PERIOD];               //Store peak period's hieght values 
 float ATF[SIZE];                              //ATF output vector  
-//Time between beats: 
-uint8_t Beat_index = 0;                       //Beat time index
-int Delta_beat_time[BEAT_WINDOW];             //Delat time between peaks vector 
-int Avg_BT = 0;                               //Average beat time over recorded time
-bool Warm_up = false;                      
+//Time between beats:
+               
 //------------------------------------------
 
 void setup() {
@@ -93,7 +92,7 @@ void loop() {
       i++;
     }
     //Warm up sensor:
-    if (delta_time >= WARM_UP_TIME && Warm_up != true)
+    if (delta_time >= WARM_UP_TIME && Warm_up == false)
     {
       i=0;
       Warm_up = true;
@@ -136,12 +135,6 @@ void loop() {
   }
   // Beat Detection:
   int Peak_number = 0;                        //Count number of peaks(heart beats)
-  int Beat_time = 0;                          //Beat time value
-  int End_beat_time = 0;                      
-  int Total_delta_beat_time = 0;              //Total beat time over recording period 
-  float Avg_BT = 0;                           //Current average beat time 
-  int Current_Delta_BT =0;  
-  bool Peak_detected = false;                 //If peak is detected = true
   for (int i = 0; i < SIZE; i++)
   {
     if (i > 3 && SSF_output[i] > ATF[i-1] && SSF_output[i-2] < SSF_output[i-1] && SSF_output[i-1] >= SSF_output[i])
@@ -151,9 +144,6 @@ void loop() {
       Peak_index++;
       Peak_index = Peak_index % PEAK_PERIOD;
       Peak_number++; 
-      End_beat_time = Beat_time;                                      //Ending time of beat
-      Beat_time = micros();                                           //Starting time of beat
-      Peak_detected = true;                                           //New peak has been detected
     }    
     //Adaptive threshold on past three peak values:
     if (Peak_number < PEAK_PERIOD)
