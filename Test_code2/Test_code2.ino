@@ -21,7 +21,7 @@ MAX30100 sensor;
 #define SAMPLE_SIZE   100               //Mean difference filter sample size used to calculate the running mean difference
 #define PEAK_PERIOD   3                 //Length of peak period 
 #define ALPHA_ATF     0.5               //Adaptive threshold function (ATF)
-#define BEAT_WINDOW   10                //Number of beats in beat window
+#define BEAT_WINDOW   5                //Number of beats in beat window
 #define BEAT_ALPHA    0.85               //Reject fasle peaks time bound (Value for Andre)
 
 //Variables store raw RED and IR values
@@ -46,18 +46,17 @@ int ATF_initial = 25;
 uint8_t Peak_index = 0;                       //Adaptive threshold index 
 float Peak_Hieght[PEAK_PERIOD];               //Store peak period's hieght values 
 float ATF = ATF_initial;                              //ATF output vector  
-//Time between beats:
-bool Beat_detected = false;                   //if beat has been detected    
+//Time between beats:                       
 int Delay_period = BEAT_WINDOW+3;             //Delay before measuring time between beats   
 uint8_t BT_index = 0;                         //Beat timer index 
-bool Beat_dete = false;
+bool Beat_dete = false;                       //if beat has been detected
 bool Peak_dete = false;
 //------------------------------------------
 
 void setup() {
   Serial.begin(115200);
-  pinMode(LED_BUILTIN, OUTPUT);
-  digitalWrite(LED_BUILTIN, LOW);
+  //pinMode(LED_BUILTIN, OUTPUT);
+  //digitalWrite(LED_BUILTIN, LOW);
   //Temperature sensor:----------------------------
   //Serial.println("MLX90632 Tempurature Sensor");
   //Wire.begin();
@@ -148,27 +147,34 @@ void loop() {
   float Avg_delta_BT = 0;
   for (int i = 0; i < SIZE; i++)
   {
-    if (i > 3 && SSF_output[i] > ATF)
-    {      
+    int Delta_BT = micros() - Beat_timer_start;       //check time
+    if (Delta_BT > BEAT_ALPHA*Avg_delta_BT || Beat_dete == false)
+    {
       if ( SSF_output[i-2] < SSF_output[i-1] && SSF_output[i-1] >= SSF_output[i])
-      {
-        int Delta_BT = micros() - Beat_timer_start;
-        if (Delta_BT > BEAT_ALPHA*Avg_delta_BT || Beat_dete == false)
+      {      
+        if (i > 3 && SSF_output[i] > ATF)
         {
-          Peak_dete = true;
+          Peak_dete = true;                     //Beat has been detected
           Peak_Hieght[Peak_index] = SSF_output[i-1];
-          Serial.print(SSF_output[i-1]);      
+          //Serial.print(SSF_output[i-1]);      
           Peak_index++;
           Peak_index = Peak_index % PEAK_PERIOD;
           Peak_number++;      
           Beat_timer_end = Beat_timer_start;          //Ending time of heart beat 
           Beat_timer_start = micros();                //Starting time of heart beat
+          //Timer between beats:
           if (Peak_number >= (Delay_period-BEAT_WINDOW))
-          {
-            Beat_detected = true;                       //Beat has been detected
+          {                       
+            int Delta_beat_time_TV = Delta_beat_time[BT_index];                   //Delta time between beats trailing values
             Delta_beat_time[BT_index] = Beat_timer_start - Beat_timer_end;    //Delta time between beats
-            int Delta_BT = Delta_beat_time[BT_index];
-            //Serial.println(Delta_beat_time[BT_index]);
+            Total_delta_BT += Delta_beat_time[BT_index];                    //Total delta values over beat window
+            if (Peak_number > Delay_period)
+            {
+              //Beat_dete = true;
+              Total_delta_BT -= Delta_beat_time_TV;               //subtract the trailing values from the total delta values
+              Avg_delta_BT = Total_delta_BT/BEAT_WINDOW;    //Average delat beat time from peak to peak over window period
+              Serial.println(Avg_delta_BT);
+            }
             BT_index++;
             BT_index = BT_index % BEAT_WINDOW;
           }
@@ -204,27 +210,12 @@ void loop() {
           ATF = ATF_prev;
         }   
       }
-      //Timer between beats:
-      if (Peak_number >= Delay_period && Beat_detected == true)
-      {
-        Beat_dete == true;
-        digitalWrite(LED_BUILTIN, HIGH);
-        Beat_detected = false;
-        Total_delta_BT = 0;                                 //Zero total delta vaule after every beat window period
-        for(int a = 0; a < BEAT_WINDOW; a++)
-        {
-          Total_delta_BT += Delta_beat_time[a];             //Sum of the delta beat time over beat window period
-          //Serial.println(Delta_beat_time[a]);
-        }
-        Avg_delta_BT = Total_delta_BT/BEAT_WINDOW;    //Average delat beat time from peak to peak over window period
-        //Serial.println(Avg_delta_BT);
-      }
     }
 
-    Serial.print(",");
-    Serial.print(SSF_output[i]); 
-    Serial.print(",");
-    Serial.println(ATF);
+    //Serial.print(",");
+    //Serial.print(SSF_output[i]); 
+    //Serial.print(",");
+    //Serial.println(ATF);
   }
     //Beats per minutes:
 /*  int BPM = (60000000/RECORDING_TIME)*Peak_number;      
