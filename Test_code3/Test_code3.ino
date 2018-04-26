@@ -68,6 +68,7 @@ void loop() {
   int start_time = micros();                      //starting time when enter while loop
   float Filtered_IR_vec[SIZE];                    //filtered IR vector for x sec 
   bool Warm_up = false;                           //Warm up sensor
+  
   while (delta_time <= Total_time)
   {     
     sensor.update();
@@ -106,6 +107,7 @@ void loop() {
   int w = 10;                                   //length of analyzing window 
   float SSF = 0;                                //summation in window period
   float SSF_output[SIZE];                       //SSF output vector
+  PROGMEM float fil_IR_vec[SIZE];           //store values in flash memory
   for (int i = 0; i < SIZE; i++)
   {
     if (i <= w)
@@ -124,6 +126,7 @@ void loop() {
         }
       }
       SSF_output[i] = SSF;
+      fil_IR_vec[i] = SSF_output[i];
     }    
     //Serial.println(SSF_output[i]);    
   }
@@ -189,7 +192,7 @@ void loop() {
           {
             Delta_P2p_time = P2p_time_start - P2p_time_end;    //delta time between peak to peak
           }
-          Serial.println(Delta_P2p_time);
+          //Serial.println(Delta_P2p_time);
         }
       }
     }
@@ -215,6 +218,15 @@ void loop() {
   // Beats per minute (BPM) calculation:
   int BPM = (60000000/(RECORDING_TIME - LEARNING_TIME))*Peak_count;
   //Serial.println(BPM);
+
+  //test: read from flash memory
+  for (int i = 0; i < SIZE; i++)
+  {
+    float val = pgm_read_float(&(fil_IR_vec[i]));
+    Serial.print(val);
+    Serial.print(" , ");
+    Serial.println(SSF_output[i]);
+  }
 
   delay(2000);
   MAX30100_Startup();     //Start up MAX30100 sensor
