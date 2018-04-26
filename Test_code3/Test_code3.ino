@@ -14,22 +14,19 @@ MAX30100 sensor;
 #define Highres_mode    true                            //High resolution mode
 
 //Heart Rate
-#define WARM_UP_TIME 2000000            //Warm up time for MAX30100 sensor (2 seconds)
-#define RECORDING_TIME  20000000         //Recording time for heart rate (20 seconds)
-#define SIZE  RECORDING_TIME/10000      //Vector size equal recording time divided by 10
-#define ALPHA_DCR     0.95              //DC filter alpha value
-#define SAMPLE_SIZE   100               //Mean difference filter sample size used to calculate the running mean difference
-#define PEAK_PERIOD   3                 //Length of peak period 
-#define ALPHA_ATF     0.5               //Adaptive threshold function (ATF)
-#define BEAT_WINDOW   5                //Number of beats in beat window
-#define BEAT_ALPHA    0.85               //Reject fasle peaks time bound (Value for Andre)
+#define WARM_UP_TIME 2000000              //Warm up time for MAX30100 sensor (2 seconds)
+#define RECORDING_TIME 20000000           //Recording time for heart rate (20 seconds)
+#define SIZE  RECORDING_TIME/10000        //Vector size equal recording time divided by 10
+#define LEARNING_TIME 5000000             //Learning phase time - start of recording 
+#define LEARNING_SIZE LEARNING_TIME/10000 //Vector size of learing phase
+#define ALPHA_DCR     0.95                //DC filter alpha value
+#define SAMPLE_SIZE   100                 //Mean difference filter sample size used to calculate the running mean difference
+#define PEAK_PERIOD   3                   //Length of peak period 
+
 
 //Variables store raw RED and IR values
 uint16_t raw_IR_Val = 0;
 uint16_t raw_RED_Val = 0;
-float Filtered_IR_vec[SIZE]; //filtered IR vector for x sec
-//Warm up sensor:
-bool Warm_up = false;       
 //-------------FILTER Variables-------------
 //DC Removal variables:
 double prev_filtered = 0;
@@ -41,16 +38,7 @@ float sum = 0;
 //Low pass filter (butterworth filter) variables:
 float Val[3];
 //-------Beat detection Variables------------
- //Adaptive threshold initial value:
-int ATF_initial = 25;
-uint8_t Peak_index = 0;                       //Adaptive threshold index 
-float Peak_Hieght[PEAK_PERIOD];               //Store peak period's hieght values 
-float ATF = ATF_initial;                              //ATF output vector  
-//Time between beats:                       
-int Delay_period = BEAT_WINDOW+3;             //Delay before measuring time between beats   
-uint8_t BT_index = 0;                         //Beat timer index 
-bool Beat_dete = false;                       //if beat has been detected
-bool Peak_dete = false;
+
 //------------------------------------------
 
 void setup() {
@@ -77,7 +65,9 @@ void loop() {
   int i = 0;                                      //Counter
   int Total_time = WARM_UP_TIME + RECORDING_TIME; //Toatl time sensor must run
   int delta_time = 0;                             //zero remaining time 
-  int start_time = micros();                      //starting time when enter while loop 
+  int start_time = micros();                      //starting time when enter while loop
+  float Filtered_IR_vec[SIZE];                    //filtered IR vector for x sec 
+  bool Warm_up = false;                           //Warm up sensor
   while (delta_time <= Total_time)
   {     
     sensor.update();
@@ -106,7 +96,7 @@ void loop() {
   sensor.shutdown();                      // Shut down MAX30100 sensor
   //fill rest of vector vector with zeros
   //Serial.println(i);
-  while (i <= SIZE)                       
+  while (i < SIZE)                       
   {
     Filtered_IR_vec[i] = 0;
     i++;
@@ -139,103 +129,93 @@ void loop() {
   }
   //--------------------------------------------------------------------------------
   // Beat Detection:
-  int Peak_number = 0;                        //Count number of peaks(heart beats)
-  int Beat_timer_start = 0;                   //Beat start time
-  int Beat_timer_end = 0;                     //Beat end time
-  int Delta_beat_time[BEAT_WINDOW];           //Vector of delta beat times between peaks 
-  int Total_delta_BT = 0;                     //Total delat beat time of delta beat time vector 
-  float Avg_delta_BT = 0;
-  for (int i = 0; i < SIZE; i++)
+  // Learning Period:
+  //Calculating top 3 peaks in the first few secounds
+  float Peak_1 = 0;
+  int P1 = 0;
+  float Peak_2 = 0;
+  int P2 = 0;
+  float Peak_3 = 0;
+  int P3 = 0;
+  for (int i = 2; i < LEARNING_SIZE; i++)
   {
-    int Delta_BT = micros() - Beat_timer_start;       //check time
-    if (Delta_BT > BEAT_ALPHA*Avg_delta_BT || Beat_dete == false)
+    if (SSF_output[i-2] < SSF_output[i-1] && SSF_output[i-1] >= SSF_output[i] && Peak_1 < SSF_output[i-1])
     {
-      if ( SSF_output[i-2] < SSF_output[i-1] && SSF_output[i-1] >= SSF_output[i])
-      {      
-        if (i > 3 && SSF_output[i] > ATF)
-        {
-          Peak_dete = true;                     //Beat has been detected
-          Peak_Hieght[Peak_index] = SSF_output[i-1];
-          //Serial.print(SSF_output[i-1]);      
-          Peak_index++;
-          Peak_index = Peak_index % PEAK_PERIOD;
-          Peak_number++;      
-          Beat_timer_end = Beat_timer_start;          //Ending time of heart beat 
-          Beat_timer_start = micros();                //Starting time of heart beat
-          //Timer between beats:
-          if (Peak_number >= (Delay_period-BEAT_WINDOW))
-          {                       
-            int Delta_beat_time_TV = Delta_beat_time[BT_index];                   //Delta time between beats trailing values
-            Delta_beat_time[BT_index] = Beat_timer_start - Beat_timer_end;    //Delta time between beats
-            Total_delta_BT += Delta_beat_time[BT_index];                    //Total delta values over beat window
-            if (Peak_number > Delay_period)
-            {
-              Beat_dete = true;
-              Total_delta_BT -= Delta_beat_time_TV;               //subtract the trailing values from the total delta values
-              Avg_delta_BT = Total_delta_BT/BEAT_WINDOW;    //Average delat beat time from peak to peak over window period
-              Serial.println(Avg_delta_BT);
-            }
-            BT_index++;
-            BT_index = BT_index % BEAT_WINDOW;
-          }
-        }
-      }
+      Peak_1 = SSF_output[i-1];
+      P1 = i-1;
     }
-    //Adaptive threshold on past three peak values:
-    if (Peak_dete == true)
+    if (SSF_output[i-2] < SSF_output[i-1] && SSF_output[i-1] >= SSF_output[i] && Peak_1 > SSF_output[i-1] && Peak_2 < SSF_output[i-1])
     {
-      Peak_dete = false;
-      float ATF_prev = ATF;
-      if (Peak_number < PEAK_PERIOD)
+      Peak_2 = SSF_output[i-1];
+      P2 = i-1;
+    }
+    if (SSF_output[i-2] < SSF_output[i-1] && SSF_output[i-1] >= SSF_output[i] && Peak_2 > SSF_output[i-1] && Peak_3 < SSF_output[i-1])
+    {
+      Peak_3 = SSF_output[i-1];
+      P3 = i-1;
+    }
+  }
+  //Serial.println(Peak_1);
+  //Serial.println(Peak_2);
+  //Serial.println(Peak_3);
+  //Calculate threshold:
+  float avg_peak = (Peak_1+Peak_2+Peak_3)/3;
+  float threshold = 0.8*avg_peak;
+
+  //Processing Period:
+  int Peak_count = 0;                         //Count number of peaks (Beats)
+  //threshold = 0;                            //(PLOTTING 1)
+  int P2p_time_start = 0;                     //Initializing start time for peak to peak
+  int P2p_time_end = 0;                       //Initializing end time for peak to peak 
+  int Delta_P2p_time = 0;                     //Initializing delta time for peak to peak  
+  for(int i = 0; i < SIZE; i++)
+  {  
+    if (i >= LEARNING_SIZE)
+    {
+      //threshold = 0.8*avg_peak;             //(PLOTTING 1)
+      if (SSF_output[i-2] < SSF_output[i-1] && SSF_output[i-1] >= SSF_output[i])     //Find Peak
       {
-        ATF = ATF_initial;                           //Intial value of adaptive threshold      
-      }
-      if (Peak_number >= PEAK_PERIOD)
-      {       
-        float Peak_tot = 0;        
-        for (int a = 0; a < PEAK_PERIOD; a++)
+        if (SSF_output[i-1] > threshold)      //Count peaks above threshold (beats) 
         {
-          Peak_tot += Peak_Hieght[a];
+          Peak_count++;
+          float Peak_value = SSF_output[i-1];
+          //Serial.print(Peak_value);         //(PLOTTING 1)
+          if (Peak_count > 0)
+          {
+            P2p_time_end = P2p_time_start;                     //ending time of peak to peak
+          }
+          P2p_time_start = micros();                           //starting time of peak to peak
+          if (Peak_count > 0)
+          {
+            Delta_P2p_time = P2p_time_start - P2p_time_end;    //delta time between peak to peak
+          }
+          Serial.println(Delta_P2p_time);
         }
-        if (Peak_tot < PEAK_PERIOD)                     //Not to divide with a number smaller than the peak period
-        {
-          ATF = ATF_prev;                            //eliminate high values during start up
-        }
-        else 
-        {
-          ATF = ALPHA_ATF*(Peak_tot/PEAK_PERIOD);    //new adaptive threshold
-        }
-        if (ATF > ATF_prev*3)                        //Eliminate high peaks
-        {
-          ATF = ATF_prev;
-        }   
       }
     }
+    // For plotting values (PLOTTING 1)
+    // if(i == P1)
+    // {
+    //   Serial.print(Peak_1);
+    // }
+    // if(i == P2)
+    // {
+    //   Serial.print(Peak_2);
+    // }
+    // if(i == P3)
+    // {
+    //   Serial.print(Peak_3);
+    // }
+    // Serial.print(",");
+    // Serial.print(SSF_output[i]);
+    // Serial.print(",");
+    // Serial.println(threshold);
+  }
 
-    //Serial.print(",");
-    //Serial.print(SSF_output[i]); 
-    //Serial.print(",");
-    //Serial.println(ATF);
-  }
-    //Beats per minutes:
-/*  int BPM = (60000000/RECORDING_TIME)*Peak_number;      
+  // Beats per minute (BPM) calculation:
+  int BPM = (60000000/(RECORDING_TIME - LEARNING_TIME))*Peak_count;
+  //Serial.println(BPM);
 
-  //Heart rate varability: (CHECK CHANGE ALOT)
-  for (int a = 0; a < Peak_number; a++)
-  {
-    Total_delta_beat_time += Delta_beat_time[a];      //Calculating total beat time over recording period
-  }
-  float HR_Varabilirty = Total_delta_beat_time/Peak_number;            //Calculating average beat time (peak to peak) over the recording period*/
-  //ATF_initial = ATF[SIZE-1];   //Redefine initial adaptive threshold value
-  //Serial.println(Peak_number);
-  //delay(5000);  
-/*  for (int i = 0; i < SIZE; i++)
-  {
-    Serial.println(SSF_output[i]); 
-    Serial.println(",");
-    Serial.println(ATF[i]);
-  }
-  Serial.println("end");*/
   delay(2000);
   MAX30100_Startup();     //Start up MAX30100 sensor
 }
