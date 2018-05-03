@@ -15,11 +15,12 @@ MAX30100 sensor;
 
 //Heart Rate
 #define WARM_UP_TIME 2000000              //Warm up time for MAX30100 sensor (2 seconds)
-#define RECORDING_TIME 40000000           //Recording time for heart rate (40 seconds)
+#define RECORDING_TIME 20000000           //Recording time for heart rate (20 seconds)
 #define SIZE  RECORDING_TIME/10000        //Vector size equal recording time divided by 10
 #define LEARNING_TIME 5000000             //Learning phase time - start of recording 
 #define LEARNING_SIZE LEARNING_TIME/10000 //Vector size of learing phase
-#define ALPHA_DCR     0.95                //DC filter alpha value
+#define ALPHA_DCR_IR    0.95                //DC filter alpha value for IR LED
+#define ALPHA_DCR_RED    0.75                //DC filter alpha value for RED LED
 #define SAMPLE_SIZE   100                 //Mean difference filter sample size used to calculate the running mean difference
 #define PEAK_PERIOD   3                   //Length of peak period 
 
@@ -44,8 +45,13 @@ float Val[3];
 
 void setup() {
   Serial.begin(115200);
+  
+  //Onboard LED:
   //pinMode(LED_BUILTIN, OUTPUT);
   //digitalWrite(LED_BUILTIN, LOW);
+  
+  //Wire.begin();
+
   //Temperature sensor:----------------------------
   //Serial.println("MLX90632 Tempurature Sensor");
   //Wire.begin();
@@ -69,6 +75,8 @@ void loop() {
   int start_time = micros();                      //starting time when enter while loop
   float Filtered_IR_val = 0;
   float Filtered_RED_val = 0;
+  float IR_DC_val = 0;
+  float RED_DC_val = 0;
   PROGMEM float Filtered_IR_vec[SIZE];                 //store filtered IR vector values in flash memory // CHRIS --> When i do this it stores empty array in flash memory
   bool Warm_up = false;                           //Warm up sensor
   
@@ -81,18 +89,23 @@ void loop() {
       //HR:
       //Serial.print(raw_IR_Val);           
       //add filtering to raw values:
-      Filtered_IR_val = DCR_function_IR(raw_IR_Val, ALPHA_DCR);       //filter raw IR LED data through DC removal
+      Filtered_IR_val, IR_DC_val = DCR_function_IR(raw_IR_Val, ALPHA_DCR_IR);       //filter raw IR LED data through DC removal
       Filtered_IR_val = MDF_function(Filtered_IR_val);                //mean difference filter IR LED data 
       Filtered_IR_val = Butterworth_LPF_function(Filtered_IR_val);    //low pass butterworth filter IR LED data
-      Filtered_IR_vec[i] = Filtered_IR_val;         //CHRIS --> It does not store the new value in the flash memory (i dont think you can store a value by value in flash memory)
+      //Filtered_IR_vec[i] = Filtered_IR_val;         //CHRIS --> It does not store the new value in the flash memory (i dont think you can store a value by value in flash memory)
       //Serial.print(" | ");
       //Serial.println(Filtered_IR_vec[i]); 
       //Serial.print(" | ");
       //Serial.println(micros());
       //-------------------------
       //Sp02:
-      Filtered_RED_val = DCR_function_RED(raw_RED_Val, ALPHA_DCR);  //filter raw RED LED data through DC removal
-      //Serial.println(Filtered_RED_val);
+      Filtered_RED_val, RED_DC_val = DCR_function_RED(raw_RED_Val, ALPHA_DCR_RED);  //filter raw RED LED data through DC removal
+      Serial.println(raw_RED_Val);
+      //RED and IR DC current balancing:
+      if (Warm_up == false)
+      {
+
+      }
       //-------------------------
       i++;
     }
@@ -114,111 +127,111 @@ void loop() {
   }
   //-----------------------Processing raw values-----------------------------------
   // Slope Sum function (SSF):
-  int w = 10;                                   //length of analyzing window 
-  float SSF = 0;                                //summation in window period
-  PROGMEM float SSF_output[SIZE];               //SSF output vector stored in flash memory
-  for (int i = 0; i < SIZE; i++)
-  {
-    if (i <= w)
-    {
-      SSF_output[i] = 0;      
-    }
-    else
-    {
-      for (int x = w; x >= 0; x--)
-      {
-        SSF = 0;
-        float delta_input = pgm_read_float(&(Filtered_IR_vec[i-w])) - pgm_read_float(&(Filtered_IR_vec[(i-w)-1]));
-        if (delta_input > 0)
-        {
-          SSF += delta_input;          
-        }
-      }
-      SSF_output[i] = SSF;
-    }    
-    //Serial.println(SSF_output[i]);    
-  }
-  //--------------------------------------------------------------------------------
-  // Beat Detection:
-  // Learning Period:
-  //Calculating top 3 peaks in the first few secounds
-  float Peak_1 = 0;
-  int P1 = 0;
-  float Peak_2 = 0;
-  int P2 = 0;
-  float Peak_3 = 0;
-  int P3 = 0;
+  // int w = 10;                                   //length of analyzing window 
+  // float SSF = 0;                                //summation in window period
+  // PROGMEM float SSF_output[SIZE];               //SSF output vector stored in flash memory
+  // for (int i = 0; i < SIZE; i++)
+  // {
+  //   if (i <= w)
+  //   {
+  //     SSF_output[i] = 0;      
+  //   }
+  //   else
+  //   {
+  //     for (int x = w; x >= 0; x--)
+  //     {
+  //       SSF = 0;
+  //       float delta_input = pgm_read_float(&(Filtered_IR_vec[i-w])) - pgm_read_float(&(Filtered_IR_vec[(i-w)-1]));
+  //       if (delta_input > 0)
+  //       {
+  //         SSF += delta_input;          
+  //       }
+  //     }
+  //     SSF_output[i] = SSF;
+  //   }    
+  //   //Serial.println(SSF_output[i]);    
+  // }
+  // //--------------------------------------------------------------------------------
+  // // Beat Detection:
+  // // Learning Period:
+  // //Calculating top 3 peaks in the first few secounds
+  // float Peak_1 = 0;
+  // int P1 = 0;
+  // float Peak_2 = 0;
+  // int P2 = 0;
+  // float Peak_3 = 0;
+  // int P3 = 0;
 
-  for (int i = 2; i < LEARNING_SIZE; i++)
-  {
-    // Getting values from flash memory:
-    float SSF_i = pgm_read_float(&(SSF_output[i]));
-    float SSF_i_1 = pgm_read_float(&(SSF_output[i-1]));
-    float SSF_i_2 = pgm_read_float(&(SSF_output[i-2]));
-    if (SSF_i_2 < SSF_i_1 && SSF_i_1 >= SSF_i && Peak_1 <= SSF_i_1)
-    {
-      Peak_3 = Peak_2;
-      P3 = P2;
-      Peak_2 = Peak_1;
-      P2 = P1;
-      Peak_1 = SSF_i_1;
-      P1 = i-1;
-    }
-    if (SSF_i_2 < SSF_i_1 && SSF_i_1 >= SSF_i && Peak_1 > SSF_i_1 && Peak_2 <= SSF_i_1)
-    {
-      Peak_3 = Peak_2;
-      P3 = P2;
-      Peak_2 = SSF_i_1;
-      P2 = i-1;
-    }
-    if (SSF_i_2 < SSF_i_1 && SSF_i_1 >= SSF_i  && Peak_2 > SSF_i_1 && Peak_3 < SSF_i_1)
-    {
-      Peak_3 = SSF_i_1;
-      P3 = i-1;
-    }
-  }
-  //Serial.println(Peak_1);
-  //Serial.println(Peak_2);
-  //Serial.println(Peak_3);
-  //Calculate threshold:
-  float avg_peak = (Peak_1+Peak_2+Peak_3)/3;
-  float threshold = 0.8*avg_peak;
+  // for (int i = 2; i < LEARNING_SIZE; i++)
+  // {
+  //   // Getting values from flash memory:
+  //   float SSF_i = pgm_read_float(&(SSF_output[i]));
+  //   float SSF_i_1 = pgm_read_float(&(SSF_output[i-1]));
+  //   float SSF_i_2 = pgm_read_float(&(SSF_output[i-2]));
+  //   if (SSF_i_2 < SSF_i_1 && SSF_i_1 >= SSF_i && Peak_1 <= SSF_i_1)
+  //   {
+  //     Peak_3 = Peak_2;
+  //     P3 = P2;
+  //     Peak_2 = Peak_1;
+  //     P2 = P1;
+  //     Peak_1 = SSF_i_1;
+  //     P1 = i-1;
+  //   }
+  //   if (SSF_i_2 < SSF_i_1 && SSF_i_1 >= SSF_i && Peak_1 > SSF_i_1 && Peak_2 <= SSF_i_1)
+  //   {
+  //     Peak_3 = Peak_2;
+  //     P3 = P2;
+  //     Peak_2 = SSF_i_1;
+  //     P2 = i-1;
+  //   }
+  //   if (SSF_i_2 < SSF_i_1 && SSF_i_1 >= SSF_i  && Peak_2 > SSF_i_1 && Peak_3 < SSF_i_1)
+  //   {
+  //     Peak_3 = SSF_i_1;
+  //     P3 = i-1;
+  //   }
+  // }
+  // //Serial.println(Peak_1);
+  // //Serial.println(Peak_2);
+  // //Serial.println(Peak_3);
+  // //Calculate threshold:
+  // float avg_peak = (Peak_1+Peak_2+Peak_3)/3;
+  // float threshold = 0.8*avg_peak;
 
-  //Processing Period:
-  int Peak_count = 0;                         //Count number of peaks (Beats)
-  int P2p_time_start = 0;                     //Initializing start time for peak to peak
-  int P2p_time_end = 0;                       //Initializing end time for peak to peak 
-  int Delta_P2p_time = 0;                     //Initializing delta time for peak to peak  
-  threshold = 0;                            //(PLOTTING 1)
-  for(int i = 0; i < SIZE; i++)
-  {  
-    // Getting values from flash memory:
-    float SSF_i = pgm_read_float(&(SSF_output[i]));
-    float SSF_i_1 = pgm_read_float(&(SSF_output[i-1]));
-    float SSF_i_2 = pgm_read_float(&(SSF_output[i-2]));
-    if (i >= LEARNING_SIZE)
-    {
-      threshold = 0.8*avg_peak;             //(PLOTTING 1)
-      if (SSF_i_2 < SSF_i_1 && SSF_i_1 >= SSF_i)     //Find Peak
-      {
-        if (SSF_i_1 > threshold)      //Count peaks above threshold (beats) 
-        {
-          Peak_count++;
-          float Peak_value = SSF_i_1;
-          //Serial.print(Peak_value);         //(PLOTTING 1)
-          if (Peak_count > 0)
-          {
-            P2p_time_end = P2p_time_start;                     //ending time of peak to peak
-          }
-          P2p_time_start = micros();                           //starting time of peak to peak
-          if (Peak_count > 0)
-          {
-            Delta_P2p_time = P2p_time_start - P2p_time_end;    //delta time between peak to peak
-          }
-          //Serial.println(Delta_P2p_time);
-        }
-      }
-    }
+  // //Processing Period:
+  // int Peak_count = 0;                         //Count number of peaks (Beats)
+  // int P2p_time_start = 0;                     //Initializing start time for peak to peak
+  // int P2p_time_end = 0;                       //Initializing end time for peak to peak 
+  // int Delta_P2p_time = 0;                     //Initializing delta time for peak to peak  
+  // threshold = 0;                            //(PLOTTING 1)
+  // for(int i = 0; i < SIZE; i++)
+  // {  
+  //   // Getting values from flash memory:
+  //   float SSF_i = pgm_read_float(&(SSF_output[i]));
+  //   float SSF_i_1 = pgm_read_float(&(SSF_output[i-1]));
+  //   float SSF_i_2 = pgm_read_float(&(SSF_output[i-2]));
+  //   if (i >= LEARNING_SIZE)
+  //   {
+  //     threshold = 0.8*avg_peak;             //(PLOTTING 1)
+  //     if (SSF_i_2 < SSF_i_1 && SSF_i_1 >= SSF_i)     //Find Peak
+  //     {
+  //       if (SSF_i_1 > threshold)      //Count peaks above threshold (beats) 
+  //       {
+  //         Peak_count++;
+  //         float Peak_value = SSF_i_1;
+  //         //Serial.print(Peak_value);         //(PLOTTING 1)
+  //         if (Peak_count > 0)
+  //         {
+  //           P2p_time_end = P2p_time_start;                     //ending time of peak to peak
+  //         }
+  //         P2p_time_start = micros();                           //starting time of peak to peak
+  //         if (Peak_count > 0)
+  //         {
+  //           Delta_P2p_time = P2p_time_start - P2p_time_end;    //delta time between peak to peak
+  //         }
+  //         //Serial.println(Delta_P2p_time);
+  //       }
+  //     }
+  //   }
     // For plotting values (PLOTTING 1)
     // if(i == P1)
     // {
@@ -236,10 +249,10 @@ void loop() {
     //Serial.print(SSF_i);
     //Serial.print(",");
     //Serial.println(threshold);
-  }
+  //}
 
   // Beats per minute (BPM) calculation:
-  int BPM = (60000000/(RECORDING_TIME - LEARNING_TIME))*Peak_count;
+  //int BPM = (60000000/(RECORDING_TIME - LEARNING_TIME))*Peak_count;
   //Serial.println(BPM);
 
   //test: read from flash memory
@@ -281,18 +294,20 @@ float DCR_function_IR(double raw_input, float alpha)
 {  
   float filtered = raw_input + alpha * prev_filtered_IR;
   float output_DCR = filtered - prev_filtered_IR;
+  float DC_val = filtered;
   prev_filtered_IR = filtered;  
   //Serial.println(output_DCR); 
-  return output_DCR;
+  return output_DCR, DC_val;
 }
 //DC Removeral filter for Sp02
 float DCR_function_RED(double raw_input, float alpha) 
 {  
   float filtered = raw_input + alpha * prev_filtered_RED;
   float output_DCR = filtered - prev_filtered_RED;
+  float DC_val = filtered;
   prev_filtered_RED = filtered;  
   //Serial.println(output_DCR); 
-  return output_DCR;
+  return output_DCR, DC_val;
 }
 // Mean difference filter
 float MDF_function(float raw_input) 
