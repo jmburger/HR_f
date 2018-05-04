@@ -8,7 +8,7 @@
 #include <MAX30100.h>
 MAX30100 sensor;
 #define IR_current      MAX30100_LED_CURR_50MA          //define IR led current (50mA)
-#define RED_current     MAX30100_LED_CURR_30_6MA          //define Red led current (50mA)
+LEDCurrent RED_current = MAX30100_LED_CURR_50MA;        //define initial Red led current (50mA)
 #define Sample_Rate     MAX30100_SAMPRATE_100HZ         //define sample rate (100Hz)
 #define Pulse_width     MAX30100_SPC_PW_1600US_16BITS   //define led pulse width (1600)
 #define Highres_mode    true                            //High resolution mode
@@ -20,8 +20,25 @@ MAX30100 sensor;
 #define ALPHA_DCR_IR    0.95                //DC filter alpha value for IR LED
 #define ALPHA_DCR_RED    0.95                //DC filter alpha value for RED LED
 #define SAMPLE_SIZE   100                 //Mean difference filter sample size used to calculate the running mean difference
-#define PEAK_PERIOD   3                   //Length of peak period 
+#define PEAK_PERIOD   3                   //Length of peak period
 
+//LED currents:
+const LEDCurrent LEDCurrent_array[] = {MAX30100_LED_CURR_0MA,         //1
+                                        MAX30100_LED_CURR_4_4MA,       //2
+                                        MAX30100_LED_CURR_7_6MA,       //3
+                                        MAX30100_LED_CURR_11MA,        //4
+                                        MAX30100_LED_CURR_14_2MA,      //5
+                                        MAX30100_LED_CURR_17_4MA,      //6
+                                        MAX30100_LED_CURR_20_8MA,      //7
+                                        MAX30100_LED_CURR_24MA,        //8
+                                        MAX30100_LED_CURR_27_1MA,      //9
+                                        MAX30100_LED_CURR_30_6MA,      //10
+                                        MAX30100_LED_CURR_33_8MA,      //11
+                                        MAX30100_LED_CURR_37MA,        //12
+                                        MAX30100_LED_CURR_40_2MA,      //13
+                                        MAX30100_LED_CURR_43_6MA,      //14
+                                        MAX30100_LED_CURR_46_8MA,      //15
+                                        MAX30100_LED_CURR_50MA};       //16   
 
 //Variables store raw RED and IR values
 uint16_t raw_IR_Val = 0;
@@ -55,6 +72,7 @@ void setup() {
   //-----------------------------------------------
   
   //MAX30100 (HR and SpO2) senesor:----------------
+  
   sensor.begin();
   MAX30100_Startup();  //Start up MAX30100 sensor  
   //-----------------------------------------------
@@ -77,6 +95,7 @@ void loop() {
   float RED_Array[SIZE];                          //RED array to store RED signal value
   bool IR_DC = false;                             //Return either DC value (true) or AC value (false)                 
   bool RED_DC = false;                            //Return either DC value (true) or AC value (false)
+  
   while (delta_time <= Total_time)
   {     
     sensor.update();
@@ -87,9 +106,12 @@ void loop() {
       //Serial.print(raw_IR_Val);           
       //add filtering to raw values:
       IR_DC = false;
-      IR_Array[i] = DCR_function_IR(raw_IR_Val, ALPHA_DCR_IR, IR_DC);       //filter raw IR LED data through DC removal
-      IR_Array[i] = MDF_function(IR_Array[i]);                //mean difference filter IR LED data 
-      IR_Array[i] = Butterworth_LPF_function(IR_Array[i]);    //low pass butterworth filter IR LED data
+      IR_Array[i] = DCR_function_IR(raw_IR_Val, ALPHA_DCR_IR, IR_DC);     //filter raw IR LED data through DC removal
+      IR_Array[i] = MDF_function(IR_Array[i]);                            //mean difference filter IR LED data 
+      IR_Array[i] = Butterworth_LPF_function(IR_Array[i]);                //low pass butterworth filter IR LED data
+      //Get DC value from signal:
+      IR_DC = true;
+      IR_DC_val = DCR_function_IR(raw_IR_Val, ALPHA_DCR_IR, IR_DC);       //Get DC value from IR signal
       //Serial.print(" | ");
       //Serial.println(IR_Array[i]); 
       //Serial.print(" | ");
@@ -98,16 +120,18 @@ void loop() {
       //Sp02:
       RED_DC = false;
       RED_Array[i] = DCR_function_RED(raw_RED_Val, ALPHA_DCR_RED, RED_DC);  //filter raw RED LED data through DC removal
-      //RED_DC = true;
-      //RED_DC_val = DCR_function_RED(raw_RED_Val, ALPHA_DCR_RED, RED_DC);
+      //Get DC value from signal
+      RED_DC = true;
+      RED_DC_val = DCR_function_RED(raw_RED_Val, ALPHA_DCR_RED, RED_DC);    //Get DC value from RED signal
       //Serial.println(raw_RED_Val);
-      Serial.println(RED_Array[i]);
+      //Serial.println(RED_Array[i]);
       //Serial.println(RED_DC_val);
       //RED and IR DC current balancing:
-      //if (Warm_up == false)
-      //{
+      if (Warm_up == false)
+      {
+        //RED_current = LEDCurrent_array[1];
 
-      //}
+      }
       //-------------------------
       i++;
     }
@@ -153,41 +177,41 @@ void loop() {
   // Beat Detection:
   // Learning Period:
   //Calculating top 3 peaks in the first few secounds
-  float Peak_1 = 0;
-  int P1 = 0;
-  float Peak_2 = 0;
-  int P2 = 0;
-  float Peak_3 = 0;
-  int P3 = 0;
+  // float Peak_1 = 0;
+  // int P1 = 0;
+  // float Peak_2 = 0;
+  // int P2 = 0;
+  // float Peak_3 = 0;
+  // int P3 = 0;
 
-  for (int i = 2; i < SIZE; i++)
-  {
-    // Getting values from flash memory:
-    float SSF_i = pgm_read_float(&(SSF_output[i]));
-    float SSF_i_1 = pgm_read_float(&(SSF_output[i-1]));
-    float SSF_i_2 = pgm_read_float(&(SSF_output[i-2]));
-    if (SSF_i_2 < SSF_i_1 && SSF_i_1 >= SSF_i && Peak_1 <= SSF_i_1)
-    {
-      Peak_3 = Peak_2;
-      P3 = P2;
-      Peak_2 = Peak_1;
-      P2 = P1;
-      Peak_1 = SSF_i_1;
-      P1 = i-1;
-    }
-    if (SSF_i_2 < SSF_i_1 && SSF_i_1 >= SSF_i && Peak_1 > SSF_i_1 && Peak_2 <= SSF_i_1)
-    {
-      Peak_3 = Peak_2;
-      P3 = P2;
-      Peak_2 = SSF_i_1;
-      P2 = i-1;
-    }
-    if (SSF_i_2 < SSF_i_1 && SSF_i_1 >= SSF_i  && Peak_2 > SSF_i_1 && Peak_3 < SSF_i_1)
-    {
-      Peak_3 = SSF_i_1;
-      P3 = i-1;
-    }
-  }
+  // for (int i = 2; i < SIZE; i++)
+  // {
+  //   // Getting values from flash memory:
+  //   float SSF_i = pgm_read_float(&(SSF_output[i]));
+  //   float SSF_i_1 = pgm_read_float(&(SSF_output[i-1]));
+  //   float SSF_i_2 = pgm_read_float(&(SSF_output[i-2]));
+  //   if (SSF_i_2 < SSF_i_1 && SSF_i_1 >= SSF_i && Peak_1 <= SSF_i_1)
+  //   {
+  //     Peak_3 = Peak_2;
+  //     P3 = P2;
+  //     Peak_2 = Peak_1;
+  //     P2 = P1;
+  //     Peak_1 = SSF_i_1;
+  //     P1 = i-1;
+  //   }
+  //   if (SSF_i_2 < SSF_i_1 && SSF_i_1 >= SSF_i && Peak_1 > SSF_i_1 && Peak_2 <= SSF_i_1)
+  //   {
+  //     Peak_3 = Peak_2;
+  //     P3 = P2;
+  //     Peak_2 = SSF_i_1;
+  //     P2 = i-1;
+  //   }
+  //   if (SSF_i_2 < SSF_i_1 && SSF_i_1 >= SSF_i  && Peak_2 > SSF_i_1 && Peak_3 < SSF_i_1)
+  //   {
+  //     Peak_3 = SSF_i_1;
+  //     P3 = i-1;
+  //   }
+  // }
   //Serial.println(Peak_1);
   //Serial.println(Peak_2);
   //Serial.println(Peak_3);
@@ -294,7 +318,6 @@ float DCR_function_IR(double raw_input, float alpha, bool ret)
   float filtered = raw_input + alpha * prev_filtered_IR;
   float AC_val = filtered - prev_filtered_IR;             //AC value of signal
   float DC_val = filtered;                                //DC value of signal
-  prev_filtered_IR = filtered;
   //Weather to return the ac or dc value:
   if (ret == true)
   {
@@ -302,6 +325,7 @@ float DCR_function_IR(double raw_input, float alpha, bool ret)
   } 
   else
   {
+    prev_filtered_IR = filtered;
     output_DCR = AC_val;
   } 
   //Serial.println(output_DCR); 
@@ -313,8 +337,7 @@ float DCR_function_RED(double raw_input, float alpha, bool ret)
   float output_DCR = 0;
   float filtered = raw_input + alpha * prev_filtered_RED;
   float AC_val = filtered - prev_filtered_RED;            //AC value of signal
-  float DC_val = filtered;                                //DC value of signal
-  prev_filtered_RED = filtered;  
+  float DC_val = filtered;                                //DC value of signal 
   //Weather to return the ac or dc value:
   if (ret == true)
   {
@@ -322,6 +345,7 @@ float DCR_function_RED(double raw_input, float alpha, bool ret)
   } 
   else
   {
+    prev_filtered_RED = filtered; 
     output_DCR = AC_val;
   }
   //Serial.println(output_DCR); 
