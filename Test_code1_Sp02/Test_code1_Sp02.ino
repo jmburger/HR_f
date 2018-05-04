@@ -8,7 +8,7 @@
 #include <MAX30100.h>
 MAX30100 sensor;
 #define IR_current      MAX30100_LED_CURR_50MA          //define IR led current (50mA)
-#define RED_current     MAX30100_LED_CURR_50MA          //define Red led current (50mA)
+#define RED_current     MAX30100_LED_CURR_30_6MA          //define Red led current (50mA)
 #define Sample_Rate     MAX30100_SAMPRATE_100HZ         //define sample rate (100Hz)
 #define Pulse_width     MAX30100_SPC_PW_1600US_16BITS   //define led pulse width (1600)
 #define Highres_mode    true                            //High resolution mode
@@ -17,10 +17,8 @@ MAX30100 sensor;
 #define WARM_UP_TIME 2000000              //Warm up time for MAX30100 sensor (2 seconds)
 #define RECORDING_TIME 20000000           //Recording time for heart rate (20 seconds)
 #define SIZE  RECORDING_TIME/10000        //Vector size equal recording time divided by 10
-#define LEARNING_TIME 5000000             //Learning phase time - start of recording 
-#define LEARNING_SIZE LEARNING_TIME/10000 //Vector size of learing phase
 #define ALPHA_DCR_IR    0.95                //DC filter alpha value for IR LED
-#define ALPHA_DCR_RED    0.75                //DC filter alpha value for RED LED
+#define ALPHA_DCR_RED    0.95                //DC filter alpha value for RED LED
 #define SAMPLE_SIZE   100                 //Mean difference filter sample size used to calculate the running mean difference
 #define PEAK_PERIOD   3                   //Length of peak period 
 
@@ -76,7 +74,7 @@ void loop() {
   float RED_DC_val = 0;
   bool Warm_up = false;                           //Warm up sensor
   float IR_Array[SIZE];                           //IR array to store IR signal value
-  //float RED_Array[SIZE];                          //RED array to store RED signal value
+  float RED_Array[SIZE];                          //RED array to store RED signal value
   bool IR_DC = false;                             //Return either DC value (true) or AC value (false)                 
   bool RED_DC = false;                            //Return either DC value (true) or AC value (false)
   while (delta_time <= Total_time)
@@ -93,14 +91,18 @@ void loop() {
       IR_Array[i] = MDF_function(IR_Array[i]);                //mean difference filter IR LED data 
       IR_Array[i] = Butterworth_LPF_function(IR_Array[i]);    //low pass butterworth filter IR LED data
       //Serial.print(" | ");
-      Serial.println(IR_Array[i]); 
+      //Serial.println(IR_Array[i]); 
       //Serial.print(" | ");
       //Serial.println(micros());
       //-------------------------
       //Sp02:
-      //RED_DC = false
-      //RED_Array[i] = DCR_function_RED(raw_RED_Val, ALPHA_DCR_RED, RED_DC);  //filter raw RED LED data through DC removal
+      RED_DC = false;
+      RED_Array[i] = DCR_function_RED(raw_RED_Val, ALPHA_DCR_RED, RED_DC);  //filter raw RED LED data through DC removal
+      //RED_DC = true;
+      //RED_DC_val = DCR_function_RED(raw_RED_Val, ALPHA_DCR_RED, RED_DC);
       //Serial.println(raw_RED_Val);
+      Serial.println(RED_Array[i]);
+      //Serial.println(RED_DC_val);
       //RED and IR DC current balancing:
       //if (Warm_up == false)
       //{
@@ -119,13 +121,13 @@ void loop() {
   }
   sensor.shutdown();                      // Shut down MAX30100 sensor
   //Test print:
-  Serial.print("-----------");
-  Serial.println(i);
+  //Serial.print("-----------");
+  //Serial.println(i);
   //-----------------------Processing raw values-----------------------------------
   //Slope Sum function (SSF):
   int w = 10;                                   //length of analyzing window 
   float SSF = 0;                                //summation in window period
-  int SSF_output[SIZE];                         //SSF output
+  float SSF_output[SIZE];                       //SSF output
   for (int i = 0; i < SIZE; i++)
   {
     if (i <= w)
@@ -143,52 +145,52 @@ void loop() {
           SSF += delta_input;          
         }
       }
-      SSF_output[i] = int(SSF+0.5);
+      SSF_output[i] = SSF;
     }    
-    Serial.println(SSF_output[i]);    
+    //Serial.println(SSF_output[i]);    
   }
   //--------------------------------------------------------------------------------
   // Beat Detection:
   // Learning Period:
   //Calculating top 3 peaks in the first few secounds
-  // float Peak_1 = 0;
-  // int P1 = 0;
-  // float Peak_2 = 0;
-  // int P2 = 0;
-  // float Peak_3 = 0;
-  // int P3 = 0;
+  float Peak_1 = 0;
+  int P1 = 0;
+  float Peak_2 = 0;
+  int P2 = 0;
+  float Peak_3 = 0;
+  int P3 = 0;
 
-  // for (int i = 2; i < LEARNING_SIZE; i++)
-  // {
-  //   // Getting values from flash memory:
-  //   float SSF_i = pgm_read_float(&(SSF_output[i]));
-  //   float SSF_i_1 = pgm_read_float(&(SSF_output[i-1]));
-  //   float SSF_i_2 = pgm_read_float(&(SSF_output[i-2]));
-  //   if (SSF_i_2 < SSF_i_1 && SSF_i_1 >= SSF_i && Peak_1 <= SSF_i_1)
-  //   {
-  //     Peak_3 = Peak_2;
-  //     P3 = P2;
-  //     Peak_2 = Peak_1;
-  //     P2 = P1;
-  //     Peak_1 = SSF_i_1;
-  //     P1 = i-1;
-  //   }
-  //   if (SSF_i_2 < SSF_i_1 && SSF_i_1 >= SSF_i && Peak_1 > SSF_i_1 && Peak_2 <= SSF_i_1)
-  //   {
-  //     Peak_3 = Peak_2;
-  //     P3 = P2;
-  //     Peak_2 = SSF_i_1;
-  //     P2 = i-1;
-  //   }
-  //   if (SSF_i_2 < SSF_i_1 && SSF_i_1 >= SSF_i  && Peak_2 > SSF_i_1 && Peak_3 < SSF_i_1)
-  //   {
-  //     Peak_3 = SSF_i_1;
-  //     P3 = i-1;
-  //   }
-  // }
-  // //Serial.println(Peak_1);
-  // //Serial.println(Peak_2);
-  // //Serial.println(Peak_3);
+  for (int i = 2; i < SIZE; i++)
+  {
+    // Getting values from flash memory:
+    float SSF_i = pgm_read_float(&(SSF_output[i]));
+    float SSF_i_1 = pgm_read_float(&(SSF_output[i-1]));
+    float SSF_i_2 = pgm_read_float(&(SSF_output[i-2]));
+    if (SSF_i_2 < SSF_i_1 && SSF_i_1 >= SSF_i && Peak_1 <= SSF_i_1)
+    {
+      Peak_3 = Peak_2;
+      P3 = P2;
+      Peak_2 = Peak_1;
+      P2 = P1;
+      Peak_1 = SSF_i_1;
+      P1 = i-1;
+    }
+    if (SSF_i_2 < SSF_i_1 && SSF_i_1 >= SSF_i && Peak_1 > SSF_i_1 && Peak_2 <= SSF_i_1)
+    {
+      Peak_3 = Peak_2;
+      P3 = P2;
+      Peak_2 = SSF_i_1;
+      P2 = i-1;
+    }
+    if (SSF_i_2 < SSF_i_1 && SSF_i_1 >= SSF_i  && Peak_2 > SSF_i_1 && Peak_3 < SSF_i_1)
+    {
+      Peak_3 = SSF_i_1;
+      P3 = i-1;
+    }
+  }
+  //Serial.println(Peak_1);
+  //Serial.println(Peak_2);
+  //Serial.println(Peak_3);
   // //Calculate threshold:
   // float avg_peak = (Peak_1+Peak_2+Peak_3)/3;
   // float threshold = 0.8*avg_peak;
