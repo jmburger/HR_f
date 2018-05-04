@@ -8,7 +8,7 @@
 #include <MAX30100.h>
 MAX30100 sensor;
 #define IR_current      MAX30100_LED_CURR_50MA          //define IR led current (50mA)
-LEDCurrent RED_current = MAX30100_LED_CURR_50MA;        //define initial Red led current (50mA)
+LEDCurrent RED_current = MAX30100_LED_CURR_24MA;        //define initial Red led current (50mA)
 #define Sample_Rate     MAX30100_SAMPRATE_100HZ         //define sample rate (100Hz)
 #define Pulse_width     MAX30100_SPC_PW_1600US_16BITS   //define led pulse width (1600)
 #define Highres_mode    true                            //High resolution mode
@@ -17,28 +17,27 @@ LEDCurrent RED_current = MAX30100_LED_CURR_50MA;        //define initial Red led
 #define WARM_UP_TIME 2000000              //Warm up time for MAX30100 sensor (2 seconds)
 #define RECORDING_TIME 20000000           //Recording time for heart rate (20 seconds)
 #define SIZE  RECORDING_TIME/10000        //Vector size equal recording time divided by 10
-#define ALPHA_DCR_IR    0.95                //DC filter alpha value for IR LED
-#define ALPHA_DCR_RED    0.95                //DC filter alpha value for RED LED
+#define ALPHA_DCR    0.95                //DC filter alpha value for LED
 #define SAMPLE_SIZE   100                 //Mean difference filter sample size used to calculate the running mean difference
-#define PEAK_PERIOD   3                   //Length of peak period
+#define ACCEPTABLE_CURRENT_DIFF   55000                   //Acceptable current difference between RED current and IR current
 
 //LED currents:
 const LEDCurrent LEDCurrent_array[] = {MAX30100_LED_CURR_0MA,         //1
-                                        MAX30100_LED_CURR_4_4MA,       //2
-                                        MAX30100_LED_CURR_7_6MA,       //3
-                                        MAX30100_LED_CURR_11MA,        //4
-                                        MAX30100_LED_CURR_14_2MA,      //5
-                                        MAX30100_LED_CURR_17_4MA,      //6
-                                        MAX30100_LED_CURR_20_8MA,      //7
-                                        MAX30100_LED_CURR_24MA,        //8
-                                        MAX30100_LED_CURR_27_1MA,      //9
-                                        MAX30100_LED_CURR_30_6MA,      //10
-                                        MAX30100_LED_CURR_33_8MA,      //11
-                                        MAX30100_LED_CURR_37MA,        //12
-                                        MAX30100_LED_CURR_40_2MA,      //13
-                                        MAX30100_LED_CURR_43_6MA,      //14
-                                        MAX30100_LED_CURR_46_8MA,      //15
-                                        MAX30100_LED_CURR_50MA};       //16   
+                                       MAX30100_LED_CURR_4_4MA,       //2
+                                       MAX30100_LED_CURR_7_6MA,       //3
+                                       MAX30100_LED_CURR_11MA,        //4
+                                       MAX30100_LED_CURR_14_2MA,      //5
+                                       MAX30100_LED_CURR_17_4MA,      //6
+                                       MAX30100_LED_CURR_20_8MA,      //7
+                                       MAX30100_LED_CURR_24MA,        //8
+                                       MAX30100_LED_CURR_27_1MA,      //9
+                                       MAX30100_LED_CURR_30_6MA,      //10
+                                       MAX30100_LED_CURR_33_8MA,      //11
+                                       MAX30100_LED_CURR_37MA,        //12
+                                       MAX30100_LED_CURR_40_2MA,      //13
+                                       MAX30100_LED_CURR_43_6MA,      //14
+                                       MAX30100_LED_CURR_46_8MA,      //15
+                                       MAX30100_LED_CURR_50MA};       //16   
 
 //Variables store raw RED and IR values
 uint16_t raw_IR_Val = 0;
@@ -54,6 +53,8 @@ uint8_t count = 0;
 float sum = 0;
 //Low pass filter (butterworth filter) variables:
 float Val[3];
+//Current balancing:
+int counter = 8;
 //-------Beat detection Variables------------
 
 //------------------------------------------
@@ -102,36 +103,52 @@ void loop() {
     // if raw data is available 
     if (sensor.getRawValues(&raw_IR_Val, &raw_RED_Val))
     {
+      //-------------------------
       //HR:
+      //-------------------------
       //Serial.print(raw_IR_Val);           
       //add filtering to raw values:
       IR_DC = false;
-      IR_Array[i] = DCR_function_IR(raw_IR_Val, ALPHA_DCR_IR, IR_DC);     //filter raw IR LED data through DC removal
+      IR_Array[i] = DCR_function_IR(raw_IR_Val, ALPHA_DCR, IR_DC);     //filter raw IR LED data through DC removal
       IR_Array[i] = MDF_function(IR_Array[i]);                            //mean difference filter IR LED data 
       IR_Array[i] = Butterworth_LPF_function(IR_Array[i]);                //low pass butterworth filter IR LED data
       //Get DC value from signal:
       IR_DC = true;
-      IR_DC_val = DCR_function_IR(raw_IR_Val, ALPHA_DCR_IR, IR_DC);       //Get DC value from IR signal
+      IR_DC_val = DCR_function_IR(raw_IR_Val, ALPHA_DCR, IR_DC);       //Get DC value from IR signal
       //Serial.print(" | ");
       //Serial.println(IR_Array[i]); 
       //Serial.print(" | ");
       //Serial.println(micros());
       //-------------------------
       //Sp02:
+      //-------------------------
       RED_DC = false;
-      RED_Array[i] = DCR_function_RED(raw_RED_Val, ALPHA_DCR_RED, RED_DC);  //filter raw RED LED data through DC removal
+      RED_Array[i] = DCR_function_RED(raw_RED_Val, ALPHA_DCR, RED_DC);  //filter raw RED LED data through DC removal
       //Get DC value from signal
       RED_DC = true;
-      RED_DC_val = DCR_function_RED(raw_RED_Val, ALPHA_DCR_RED, RED_DC);    //Get DC value from RED signal
+      RED_DC_val = DCR_function_RED(raw_RED_Val, ALPHA_DCR, RED_DC);    //Get DC value from RED signal
       //Serial.println(raw_RED_Val);
       //Serial.println(RED_Array[i]);
       //Serial.println(RED_DC_val);
       //RED and IR DC current balancing:
-      if (Warm_up == false)
+      if (IR_DC_val - RED_DC_val > ACCEPTABLE_CURRENT_DIFF && RED_current < MAX30100_LED_CURR_50MA)
       {
-        //RED_current = LEDCurrent_array[1];
-
+        counter++;
+        RED_current = LEDCurrent_array[counter];          //change RED LED's current
+        sensor.setLedsCurrent(IR_current, RED_current);   //Set led's current IR and Red respectively
+        //Serial.print("hi");
       }
+      if (RED_DC_val - IR_DC_val > ACCEPTABLE_CURRENT_DIFF && RED_current > 0)
+      {
+        counter--;
+        RED_current = LEDCurrent_array[counter];          //change RED LED's current
+        sensor.setLedsCurrent(IR_current, RED_current);   //Set led's current IR and Red respectively
+        //Serial.print("hi");
+      }
+      //Serial.print(" , ");  
+      //Serial.print(RED_DC_val); 
+      //Serial.print(" , ");
+      //Serial.println(IR_DC_val);
       //-------------------------
       i++;
     }
