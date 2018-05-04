@@ -49,8 +49,6 @@ void setup() {
   //Onboard LED:
   //pinMode(LED_BUILTIN, OUTPUT);
   //digitalWrite(LED_BUILTIN, LOW);
-  
-  //Wire.begin();
 
   //Temperature sensor:----------------------------
   //Serial.println("MLX90632 Tempurature Sensor");
@@ -59,6 +57,7 @@ void setup() {
   //-----------------------------------------------
   
   //MAX30100 (HR and SpO2) senesor:----------------
+  sensor.begin();
   MAX30100_Startup();  //Start up MAX30100 sensor  
   //-----------------------------------------------
 
@@ -73,13 +72,13 @@ void loop() {
   int Total_time = WARM_UP_TIME + RECORDING_TIME; //Toatl time sensor must run
   int delta_time = 0;                             //zero remaining time 
   int start_time = micros();                      //starting time when enter while loop
-  float Filtered_IR_val = 0;
-  float Filtered_RED_val = 0;
   float IR_DC_val = 0;
   float RED_DC_val = 0;
-  PROGMEM float Filtered_IR_vec[SIZE];                 //store filtered IR vector values in flash memory // CHRIS --> When i do this it stores empty array in flash memory
   bool Warm_up = false;                           //Warm up sensor
-  
+  float IR_Array[SIZE];                           //IR array to store IR signal value
+  //float RED_Array[SIZE];                          //RED array to store RED signal value
+  bool IR_DC = false;                             //Return either DC value (true) or AC value (false)                 
+  bool RED_DC = false;                            //Return either DC value (true) or AC value (false)
   while (delta_time <= Total_time)
   {     
     sensor.update();
@@ -89,23 +88,24 @@ void loop() {
       //HR:
       //Serial.print(raw_IR_Val);           
       //add filtering to raw values:
-      Filtered_IR_val, IR_DC_val = DCR_function_IR(raw_IR_Val, ALPHA_DCR_IR);       //filter raw IR LED data through DC removal
-      Filtered_IR_val = MDF_function(Filtered_IR_val);                //mean difference filter IR LED data 
-      Filtered_IR_val = Butterworth_LPF_function(Filtered_IR_val);    //low pass butterworth filter IR LED data
-      //Filtered_IR_vec[i] = Filtered_IR_val;         //CHRIS --> It does not store the new value in the flash memory (i dont think you can store a value by value in flash memory)
+      IR_DC = false;
+      IR_Array[i] = DCR_function_IR(raw_IR_Val, ALPHA_DCR_IR, IR_DC);       //filter raw IR LED data through DC removal
+      IR_Array[i] = MDF_function(IR_Array[i]);                //mean difference filter IR LED data 
+      IR_Array[i] = Butterworth_LPF_function(IR_Array[i]);    //low pass butterworth filter IR LED data
       //Serial.print(" | ");
-      //Serial.println(Filtered_IR_vec[i]); 
+      Serial.println(IR_Array[i]); 
       //Serial.print(" | ");
       //Serial.println(micros());
       //-------------------------
       //Sp02:
-      Filtered_RED_val, RED_DC_val = DCR_function_RED(raw_RED_Val, ALPHA_DCR_RED);  //filter raw RED LED data through DC removal
-      Serial.println(raw_RED_Val);
+      //RED_DC = false
+      //RED_Array[i] = DCR_function_RED(raw_RED_Val, ALPHA_DCR_RED, RED_DC);  //filter raw RED LED data through DC removal
+      //Serial.println(raw_RED_Val);
       //RED and IR DC current balancing:
-      if (Warm_up == false)
-      {
+      //if (Warm_up == false)
+      //{
 
-      }
+      //}
       //-------------------------
       i++;
     }
@@ -118,43 +118,39 @@ void loop() {
     delta_time = micros() - start_time;   //update remaining time 
   }
   sensor.shutdown();                      // Shut down MAX30100 sensor
-  //fill rest of vector vector with zeros
+  //Test print:
+  Serial.print("-----------");
   Serial.println(i);
-  while (i < SIZE)                       
-  {
-   Filtered_IR_vec[i] = 0;
-   i++;
-  }
   //-----------------------Processing raw values-----------------------------------
-  // Slope Sum function (SSF):
-  // int w = 10;                                   //length of analyzing window 
-  // float SSF = 0;                                //summation in window period
-  // PROGMEM float SSF_output[SIZE];               //SSF output vector stored in flash memory
-  // for (int i = 0; i < SIZE; i++)
-  // {
-  //   if (i <= w)
-  //   {
-  //     SSF_output[i] = 0;      
-  //   }
-  //   else
-  //   {
-  //     for (int x = w; x >= 0; x--)
-  //     {
-  //       SSF = 0;
-  //       float delta_input = pgm_read_float(&(Filtered_IR_vec[i-w])) - pgm_read_float(&(Filtered_IR_vec[(i-w)-1]));
-  //       if (delta_input > 0)
-  //       {
-  //         SSF += delta_input;          
-  //       }
-  //     }
-  //     SSF_output[i] = SSF;
-  //   }    
-  //   //Serial.println(SSF_output[i]);    
-  // }
-  // //--------------------------------------------------------------------------------
-  // // Beat Detection:
-  // // Learning Period:
-  // //Calculating top 3 peaks in the first few secounds
+  //Slope Sum function (SSF):
+  int w = 10;                                   //length of analyzing window 
+  float SSF = 0;                                //summation in window period
+  int SSF_output[SIZE];                         //SSF output
+  for (int i = 0; i < SIZE; i++)
+  {
+    if (i <= w)
+    {
+      SSF_output[i] = 0;      
+    }
+    else
+    {
+      for (int x = w; x >= 0; x--)
+      {
+        SSF = 0;
+        float delta_input = (IR_Array[i-w]) - (IR_Array[(i-w)-1]);
+        if (delta_input > 0)
+        {
+          SSF += delta_input;          
+        }
+      }
+      SSF_output[i] = int(SSF+0.5);
+    }    
+    Serial.println(SSF_output[i]);    
+  }
+  //--------------------------------------------------------------------------------
+  // Beat Detection:
+  // Learning Period:
+  //Calculating top 3 peaks in the first few secounds
   // float Peak_1 = 0;
   // int P1 = 0;
   // float Peak_2 = 0;
@@ -232,24 +228,24 @@ void loop() {
   //       }
   //     }
   //   }
-    // For plotting values (PLOTTING 1)
-    // if(i == P1)
-    // {
-    //   Serial.print(Peak_1);
-    // }
-    // if(i == P2)
-    // {
-    //   Serial.print(Peak_2);
-    // }
-    // if(i == P3)
-    // {
-    //   Serial.print(Peak_3);
-    // }
-    //Serial.print(",");
-    //Serial.print(SSF_i);
-    //Serial.print(",");
-    //Serial.println(threshold);
-  //}
+  //   For plotting values (PLOTTING 1)
+  //   if(i == P1)
+  //   {
+  //     Serial.print(Peak_1);
+  //   }
+  //   if(i == P2)
+  //   {
+  //     Serial.print(Peak_2);
+  //   }
+  //   if(i == P3)
+  //   {
+  //     Serial.print(Peak_3);
+  //   }
+  //   Serial.print(",");
+  //   Serial.print(SSF_i);
+  //   Serial.print(",");
+  //   Serial.println(threshold);
+  // }
 
   // Beats per minute (BPM) calculation:
   //int BPM = (60000000/(RECORDING_TIME - LEARNING_TIME))*Peak_count;
@@ -290,24 +286,44 @@ void MAX30100_Startup()
 }
 //-------------------------Functions------------------------------------------------
 //DC Removeral filter for Heart Rate (HR)
-float DCR_function_IR(double raw_input, float alpha) 
+float DCR_function_IR(double raw_input, float alpha, bool ret) 
 {  
+  float output_DCR = 0;
   float filtered = raw_input + alpha * prev_filtered_IR;
-  float output_DCR = filtered - prev_filtered_IR;
-  float DC_val = filtered;
-  prev_filtered_IR = filtered;  
+  float AC_val = filtered - prev_filtered_IR;             //AC value of signal
+  float DC_val = filtered;                                //DC value of signal
+  prev_filtered_IR = filtered;
+  //Weather to return the ac or dc value:
+  if (ret == true)
+  {
+    output_DCR = DC_val;
+  } 
+  else
+  {
+    output_DCR = AC_val;
+  } 
   //Serial.println(output_DCR); 
-  return output_DCR, DC_val;
+  return output_DCR;
 }
 //DC Removeral filter for Sp02
-float DCR_function_RED(double raw_input, float alpha) 
+float DCR_function_RED(double raw_input, float alpha, bool ret) 
 {  
+  float output_DCR = 0;
   float filtered = raw_input + alpha * prev_filtered_RED;
-  float output_DCR = filtered - prev_filtered_RED;
-  float DC_val = filtered;
+  float AC_val = filtered - prev_filtered_RED;            //AC value of signal
+  float DC_val = filtered;                                //DC value of signal
   prev_filtered_RED = filtered;  
+  //Weather to return the ac or dc value:
+  if (ret == true)
+  {
+    output_DCR = DC_val;
+  } 
+  else
+  {
+    output_DCR = AC_val;
+  }
   //Serial.println(output_DCR); 
-  return output_DCR, DC_val;
+  return output_DCR;
 }
 // Mean difference filter
 float MDF_function(float raw_input) 
