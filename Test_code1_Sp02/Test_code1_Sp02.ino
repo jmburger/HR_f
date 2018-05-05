@@ -192,107 +192,93 @@ void loop() {
   }
   //--------------------------------------------------------------------------------
   // Beat Detection:
-  // Learning Period:
-  //Calculating top 3 peaks in the first few secounds
-  // float Peak_1 = 0;
-  // int P1 = 0;
-  // float Peak_2 = 0;
-  // int P2 = 0;
-  // float Peak_3 = 0;
-  // int P3 = 0;
+  // Learning Period:    
+  int Expected_beats = 40*RECORDING_TIME/60000000;            //Amount of expected beats in the recording with a 40BPM HR
+  //Serial.println(Expected_beats);
+  float Beat_array[Expected_beats];                           //Store peak values of expected beats
+  float Peak = 0;                                             //Value of peak detected
+  bool Peak_detected = false;                                 //When a peak is detected it becomes true otherwise false
+  
+  //Identifies the highest peaks of the of the number of expected peaks.
+  for (int i = 1; i < SIZE; i++)
+  {
+    //Serial.println(SSF_output[i]);
+    if(SSF_output[i-1] < SSF_output[i] && SSF_output[i] > SSF_output[i+1])
+    { 
+      Peak = SSF_output[i];
+      Peak_detected = true;
+      for (int j = Expected_beats - 1; j >= 0; j--)
+      { 
+        if (Peak > Beat_array[j] && Peak_detected == true)
+        {
+          for(int p = 1; p <= j; p++)
+          {
+            Beat_array[p-1] = Beat_array[p];
+          }
+          Beat_array[j] = Peak;
+          Peak_detected = false;
+        }
+      }
+    }
+  }
+  // Test result of beat array 
+  //Serial.println("------------");
+  //for(int x = 0; x < Expected_beats; x++)
+  //{
+  //  Serial.println(Beat_array[x]);
+  //}
 
-  // for (int i = 2; i < SIZE; i++)
-  // {
-  //   // Getting values from flash memory:
-  //   float SSF_i = pgm_read_float(&(SSF_output[i]));
-  //   float SSF_i_1 = pgm_read_float(&(SSF_output[i-1]));
-  //   float SSF_i_2 = pgm_read_float(&(SSF_output[i-2]));
-  //   if (SSF_i_2 < SSF_i_1 && SSF_i_1 >= SSF_i && Peak_1 <= SSF_i_1)
-  //   {
-  //     Peak_3 = Peak_2;
-  //     P3 = P2;
-  //     Peak_2 = Peak_1;
-  //     P2 = P1;
-  //     Peak_1 = SSF_i_1;
-  //     P1 = i-1;
-  //   }
-  //   if (SSF_i_2 < SSF_i_1 && SSF_i_1 >= SSF_i && Peak_1 > SSF_i_1 && Peak_2 <= SSF_i_1)
-  //   {
-  //     Peak_3 = Peak_2;
-  //     P3 = P2;
-  //     Peak_2 = SSF_i_1;
-  //     P2 = i-1;
-  //   }
-  //   if (SSF_i_2 < SSF_i_1 && SSF_i_1 >= SSF_i  && Peak_2 > SSF_i_1 && Peak_3 < SSF_i_1)
-  //   {
-  //     Peak_3 = SSF_i_1;
-  //     P3 = i-1;
-  //   }
-  // }
-  //Serial.println(Peak_1);
-  //Serial.println(Peak_2);
-  //Serial.println(Peak_3);
-  // //Calculate threshold:
-  // float avg_peak = (Peak_1+Peak_2+Peak_3)/3;
-  // float threshold = 0.8*avg_peak;
+  //Processing Period:
+  //Calculating threshold
+  int Sum_beat_array = 0;                   //Total sum of the beat array.
+  for(int i = 0; i < Expected_beats; i++)
+  {
+    Sum_beat_array += Beat_array[i];        //Total
+  }
+  int threshold = 0.7*(Sum_beat_array/Expected_beats);             //threshold value for beat detection
 
-  // //Processing Period:
-  // int Peak_count = 0;                         //Count number of peaks (Beats)
-  // int P2p_time_start = 0;                     //Initializing start time for peak to peak
-  // int P2p_time_end = 0;                       //Initializing end time for peak to peak 
-  // int Delta_P2p_time = 0;                     //Initializing delta time for peak to peak  
-  // threshold = 0;                            //(PLOTTING 1)
   // for(int i = 0; i < SIZE; i++)
-  // {  
-  //   // Getting values from flash memory:
-  //   float SSF_i = pgm_read_float(&(SSF_output[i]));
-  //   float SSF_i_1 = pgm_read_float(&(SSF_output[i-1]));
-  //   float SSF_i_2 = pgm_read_float(&(SSF_output[i-2]));
-  //   if (i >= LEARNING_SIZE)
-  //   {
-  //     threshold = 0.8*avg_peak;             //(PLOTTING 1)
-  //     if (SSF_i_2 < SSF_i_1 && SSF_i_1 >= SSF_i)     //Find Peak
-  //     {
-  //       if (SSF_i_1 > threshold)      //Count peaks above threshold (beats) 
-  //       {
-  //         Peak_count++;
-  //         float Peak_value = SSF_i_1;
-  //         //Serial.print(Peak_value);         //(PLOTTING 1)
-  //         if (Peak_count > 0)
-  //         {
-  //           P2p_time_end = P2p_time_start;                     //ending time of peak to peak
-  //         }
-  //         P2p_time_start = micros();                           //starting time of peak to peak
-  //         if (Peak_count > 0)
-  //         {
-  //           Delta_P2p_time = P2p_time_start - P2p_time_end;    //delta time between peak to peak
-  //         }
-  //         //Serial.println(Delta_P2p_time);
-  //       }
-  //     }
-  //   }
-  //   For plotting values (PLOTTING 1)
-  //   if(i == P1)
-  //   {
-  //     Serial.print(Peak_1);
-  //   }
-  //   if(i == P2)
-  //   {
-  //     Serial.print(Peak_2);
-  //   }
-  //   if(i == P3)
-  //   {
-  //     Serial.print(Peak_3);
-  //   }
-  //   Serial.print(",");
-  //   Serial.print(SSF_i);
+  // {
+  //   //Serial.print(",");
+  //   Serial.print(SSF_output[i]);
   //   Serial.print(",");
   //   Serial.println(threshold);
   // }
 
+  int Peak_count = 0;                         //Count number of peaks (Beats)
+  int P2p_time_start = 0;                     //Initializing start time for peak to peak
+  int P2p_time_end = 0;                       //Initializing end time for peak to peak 
+  int Delta_P2p_time = 0;                     //Initializing delta time for peak to peak  
+  for(int i = 0; i < SIZE; i++)
+  {  
+    if (SSF_output[i] > threshold)      //Count peaks above threshold (beats) 
+    {
+      if(SSF_output[i-1] < SSF_output[i] && SSF_output[i] > SSF_output[i+1])    //Peak detecting 
+      {
+        Peak_count++;
+        float Peak_value = SSF_output[i];
+        //Serial.print(Peak_value);         
+        if (Peak_count > 0)
+        {
+          P2p_time_end = P2p_time_start;                     //ending time of peak to peak
+        }
+        P2p_time_start = micros();                           //starting time of peak to peak
+        if (Peak_count > 0)
+        {
+          Delta_P2p_time = P2p_time_start - P2p_time_end;    //delta time between peak to peak
+        }
+        //Serial.println(Delta_P2p_time);
+      }
+    }
+    //Serial.print(",");
+    //Serial.print(SSF_output[i]);
+    //Serial.print(",");
+    //Serial.println(threshold);
+  }
+
   // Beats per minute (BPM) calculation:
-  //int BPM = (60000000/(RECORDING_TIME - LEARNING_TIME))*Peak_count;
-  //Serial.println(BPM);
+  int BPM = (60000000/RECORDING_TIME)*Peak_count;
+  Serial.println(BPM);
 
   //test: read from flash memory
   // for (int i = 0; i < SIZE; i++)
