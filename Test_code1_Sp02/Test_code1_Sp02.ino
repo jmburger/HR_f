@@ -96,6 +96,12 @@ void loop() {
   float RED_Array[SIZE];                          //RED array to store RED signal value
   bool IR_DC = false;                             //Return either DC value (true) or AC value (false)                 
   bool RED_DC = false;                            //Return either DC value (true) or AC value (false)
+  //Sp02 calculation variables:
+  float Sum_AC_IR = 0;                            //Sum of the IR AC signal value
+  float Sum_AC_RED = 0;                           //Sum of the RED AC signal value
+  int delta_time_5sec = 0;
+  int start_time_5sec = 0;
+  int index_Sp02 = 0;                             //index for calculating SpO2
   
   while (delta_time <= Total_time)
   {     
@@ -110,6 +116,8 @@ void loop() {
       //add filtering to raw values:
       IR_DC = false;
       IR_Array[i] = DCR_function_IR(raw_IR_Val, ALPHA_DCR, IR_DC);     //filter raw IR LED data through DC removal
+      //Calculating AC RMS value:
+      Sum_AC_IR += pow((IR_Array[i]),2);                                    //Sum of the IR AC signal value
       IR_Array[i] = MDF_function(IR_Array[i]);                            //mean difference filter IR LED data 
       IR_Array[i] = Butterworth_LPF_function(IR_Array[i]);                //low pass butterworth filter IR LED data
       //Get DC value from signal:
@@ -124,12 +132,16 @@ void loop() {
       //-------------------------
       RED_DC = false;
       RED_Array[i] = DCR_function_RED(raw_RED_Val, ALPHA_DCR, RED_DC);  //filter raw RED LED data through DC removal
+      //Calculating AC RMS value:
+      Sum_AC_RED += pow((RED_Array[i]),2);                                   //Sum of the RED AC signal value
       //Get DC value from signal
       RED_DC = true;
       RED_DC_val = DCR_function_RED(raw_RED_Val, ALPHA_DCR, RED_DC);    //Get DC value from RED signal
       //Serial.println(raw_RED_Val);
       //Serial.println(RED_Array[i]);
       //Serial.println(RED_DC_val);
+      //-------------------------
+
       //RED and IR DC current balancing:
       if (IR_DC_val - RED_DC_val > ACCEPTABLE_CURRENT_DIFF && RED_current < MAX30100_LED_CURR_50MA)
       {
@@ -149,16 +161,40 @@ void loop() {
       //Serial.print(RED_DC_val); 
       //Serial.print(" , ");
       //Serial.println(IR_DC_val);
-      //-------------------------
+
+      //Calculation Sp02 every 5 seconds:
+      delta_time_5sec = micros() - start_time_5sec;     //update remaining time
+      if(delta_time_5sec >= 5000000 && Warm_up == true)
+      {
+        //Serial.println("hi");   //test print
+        float RMS_AC_IR = sqrt(Sum_AC_IR/index_Sp02);   //RMS of the IR AC signal
+        float RMS_AC_RED = sqrt(Sum_AC_RED/index_Sp02); //RMS of the RED AC signal
+        float R = (RMS_AC_RED/RED_DC_val)/(RMS_AC_IR/IR_DC_val);    //R value used to calculate Sp02
+        float Sp02 = 110 - 25*R;                        //Sp02 value
+        //Serial.print(index_Sp02);
+        //Serial.print(" , ");
+        Serial.println(Sp02);                           //Print Sp02 value
+        start_time_5sec = micros();                     //Starting time for 5 sec
+        Sum_AC_IR = 0;
+        Sum_AC_RED = 0;
+        index_Sp02 = 0;
+      }
+
+      index_Sp02++;
       i++;
-    }
-    //Warm up sensor:
-    if (delta_time >= WARM_UP_TIME && Warm_up == false)
-    {
-      i=0;
-      Warm_up = true;
-    }
-    delta_time = micros() - start_time;   //update remaining time 
+
+      //Warm up sensor:
+      delta_time = micros() - start_time;   //update remaining time 
+      if (delta_time >= WARM_UP_TIME && Warm_up == false)
+      {
+        i = 0;
+        Sum_AC_IR = 0;
+        Sum_AC_RED = 0;
+        index_Sp02 = 0;
+        Warm_up = true;
+        start_time_5sec = micros();                     //Starting time for 5 sec
+      }
+    }  
   }
   sensor.shutdown();                      // Shut down MAX30100 sensor
   //Test print:
@@ -278,7 +314,7 @@ void loop() {
 
   // Beats per minute (BPM) calculation:
   int BPM = (60000000/RECORDING_TIME)*Peak_count;
-  Serial.println(BPM);
+  //Serial.println(BPM);
 
   //test: read from flash memory
   // for (int i = 0; i < SIZE; i++)
