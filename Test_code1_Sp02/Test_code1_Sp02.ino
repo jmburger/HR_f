@@ -167,9 +167,12 @@ void loop() {
       if(delta_time_5sec >= 5000000 && Warm_up == true)
       {
         //Serial.println("hi");   //test print
-        float RMS_AC_IR = sqrt(Sum_AC_IR/index_Sp02);   //RMS of the IR AC signal
-        float RMS_AC_RED = sqrt(Sum_AC_RED/index_Sp02); //RMS of the RED AC signal
-        float R = (RMS_AC_RED/RED_DC_val)/(RMS_AC_IR/IR_DC_val);    //R value used to calculate Sp02
+        float RMS_AC_IR  = 0;
+        float RMS_AC_RED  = 0;
+        float R = 0;
+        RMS_AC_IR = sqrt(Sum_AC_IR/index_Sp02);   //RMS of the IR AC signal
+        RMS_AC_RED = sqrt(Sum_AC_RED/index_Sp02); //RMS of the RED AC signal
+        R = (RMS_AC_RED/RED_DC_val)/(RMS_AC_IR/IR_DC_val);    //R value used to calculate Sp02
         float Sp02 = 110 - 25*R;                        //Sp02 value
         //Serial.print(index_Sp02);
         //Serial.print(" , ");
@@ -271,7 +274,7 @@ void loop() {
   {
     Sum_beat_array += Beat_array[i];        //Total
   }
-  int threshold = 0.7*(Sum_beat_array/Expected_beats);             //threshold value for beat detection
+  int threshold = 0.65*(Sum_beat_array/Expected_beats);             //threshold value for beat detection
 
   // for(int i = 0; i < SIZE; i++)
   // {
