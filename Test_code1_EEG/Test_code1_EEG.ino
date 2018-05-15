@@ -16,7 +16,7 @@ void loop() {
     // The .readCSV() function returns a string (well, char*) listing the most recent brain data, in the following format:
     // "signal strength, attention, meditation, delta, theta, low alpha, high alpha, low beta, high beta, low gamma, high gamma"
     brain.update();
-    if (Brain_prev != brain.readDelta()) 
+    if (Brain_prev != brain.readDelta() && brain.readDelta() != 0) 
     {
     	Brain_prev = brain.readDelta();
         //Serial.println(brain.readErrors());
