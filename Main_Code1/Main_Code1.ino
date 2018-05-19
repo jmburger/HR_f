@@ -23,9 +23,9 @@ void setup()
 	Serial.begin(115200);
 
   	// Temperature sensor:
-	Wire.begin();
-	temp_sensor.begin();					// Start sensor
-	temp_sensor.setMode(MODE_SLEEP);		// Put sensor in sleep mode 
+	//Wire.begin();
+	//temp_sensor.begin();					// Start sensor
+	//temp_sensor.setMode(MODE_SLEEP);		// Put sensor in sleep mode 
 
 }
 
@@ -36,8 +36,16 @@ void loop()
   	if (time_10s_micro - time_10s >= 10000000)
   	{
   		time_10s = micros();		// redefine time
-  		//insert code below:
-  		Serial.println("10 seconds"); // test print every 10 seconds
+  		// insert code below:
+  		Serial.println("10 seconds");	// test print
+  		// while loop to record 5 seconds of data:
+  		int delta_rec_5s = 0;				// delta time between current and start time
+  		int start_rec_5s = micros();		// start record time 5 seconds
+  		while(delta_rec_5s <= 5000000)
+  		{
+  			delta_rec_5s = micros() - start_rec_5s; 				// delta time calculation 5 seconds
+  		}
+  		Serial.println("exit while loop 5s");	// test print
   	}
 
   	//Every minute take a temperature reading:
@@ -46,8 +54,9 @@ void loop()
 	{
 		time_60s = micros();		// redefine time
 		//insert code below:
-		float Core_body_temp = temp_sensor.getObjectTemp();			// Get core body temperature
-		Serial.println(Core_body_temp);								// print core body temperature ever 1 minute.
+		Serial.println("60 seconds");		// test print
+		//float Core_body_temp = temp_sensor.getObjectTemp();			// Get core body temperature
+		//Serial.println(Core_body_temp);								// print core body temperature ever 1 minute.
 	}
 
 	//Every 5 minutes record 30's of HR and Sp02 for RR and B2B:
@@ -56,8 +65,14 @@ void loop()
   	{
   		time_300s = micros();		// redefine time
   		//insert code below:
-  		Serial.println("5 minutes"); // test print every 5 seconds
-
+  		Serial.println("5 minute");	// test print
+  		int delta_rec_30s = 0;			//delta time between current and start time
+  		int start_rec_30s = micros();	// start record time 30 seconds
+  		while(delta_rec_30s <= 30000000)
+		{
+  		    delta_rec_30s = micros() - start_rec_30s;				// delta time calculation 30 seconds 
+  		}
+  		Serial.println("exit while loop 30s");	// test print
   	}
 
 }
