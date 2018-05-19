@@ -89,9 +89,16 @@ void loop()
 	if (Current_balaning == true)
 	{
 		MAX30100_Startup();					// start-up the MAX30100 sensor
+		// Warm Up:
+  		//int delta_warmup = 0;				// delta time of warm up
+  		//int start_warmup = micros();		// start time of warm up (1 second)
+  		//while(delta_warmup <= 1000000)		
+  		//{
+  		//	delta_warmup = micros() - start_warmup;		// delta time of warm up
+  		//}
 		int delta_3s = 0;					// delta time between current and start time
 		int start_3s = micros();			// start 3 second current balancing
-		while(delta_3s <= 30000000)
+		while(delta_3s <= 3000000)
 		{
 			delta_3s = micros() - start_3s; 				// delta time calculation 3 seconds
 			// if raw data is available 
@@ -120,9 +127,9 @@ void loop()
         			MAX30100_sensor.setLedsCurrent(IR_current, RED_current);   	//Set led's current IR and Red respectively
         		}
         		// Test print: 
-      			Serial.print(RED_DC_val); 
-      			Serial.print(" , ");
-      			Serial.println(IR_DC_val);
+      			//Serial.print(RED_DC_val); 
+      			//Serial.print(" , ");
+      			//Serial.println(IR_DC_val);
 			}
 		}
 		Current_balaning = false;			// Current balancing complete
@@ -134,15 +141,57 @@ void loop()
   	{
   		time_10s = micros();		// redefine time
   		// insert code below:
+  		MAX30100_Startup();					// start-up the MAX30100 sensor
+  		// Warm Up:
+  		//int delta_warmup = 0;				// delta time of warm up
+  		//int start_warmup = micros();		// start time of warm up (1 second)
+  		//while(delta_warmup <= 1000000)		
+  		//{
+  		//	delta_warmup = micros() - start_warmup;		// delta time of warm up
+  		//}
   		//Serial.println("10 seconds");	// test print
-  		// while loop to record 5 seconds of data:
+  		int i = 0;                          //Counter
+  		float IR_AC_array[500];				// IR signal AC array_.
+  		float Sum_AC_IR = 0;				//Sum of the IR AC signal value
+  		float Sum_AC_RED = 0;				//Sum of the RED AC signal value
   		int delta_rec_5s = 0;				// delta time between current and start time
   		int start_rec_5s = micros();		// start record time 5 seconds
+  		// while loop to record 5 seconds of data:
   		while(delta_rec_5s <= 5000000)
   		{
   			delta_rec_5s = micros() - start_rec_5s; 				// delta time calculation 5 seconds
+  			// if raw data is available 
+			MAX30100_sensor.update();		// Update sensor
+    		if (MAX30100_sensor.getRawValues(&raw_IR_Val, &raw_RED_Val))
+    		{
+    			// IR Signal:
+      			IR_DC = false;
+     			IR_AC_array[i] = DCR_function_IR(raw_IR_Val, ALPHA_DCR, IR_DC);     	//filter raw IR LED data through DC removal
+      			//Calculating AC RMS value:
+      			Sum_AC_IR += pow((IR_AC_array[i]),2);                                   //Sum of the IR AC signal value
+      			//Add filtering to raw values:
+      			IR_AC_array[i] = MDF_function(IR_AC_array[i]);                         	//mean difference filter IR LED data 
+      			IR_AC_array[i] = Butterworth_LPF_function(IR_AC_array[i]);             	//low pass butterworth filter IR LED data
+            	//Get DC value from signal:
+      			IR_DC = true;
+      			float IR_DC_val = DCR_function_IR(raw_IR_Val, ALPHA_DCR, IR_DC);       		//Get DC value from IR signal
+      
+      			// RED Signal:
+      			RED_DC = false;
+      			float RED_AC_value = DCR_function_RED(raw_RED_Val, ALPHA_DCR, RED_DC);  //filter raw RED LED data through DC removal
+      			//Calculating AC RMS value:
+      			Sum_AC_RED += pow((RED_AC_value),2);                                   	//Sum of the RED AC signal value
+      			//Get DC value from signal
+      			RED_DC = true;
+      			float RED_DC_val = DCR_function_RED(raw_RED_Val, ALPHA_DCR, RED_DC);    		//Get DC value from RED signal
+
+      			// Test Print:
+      			Serial.println(IR_AC_array[i]);
+    		}
+    		i++;
   		}
   		//Serial.println("exit while loop 5s");	// test print
+  		MAX30100_sensor.shutdown();				// Shutdown MAX30100 sensor	
   	}
 
   	//Every minute take a temperature reading:
@@ -165,11 +214,13 @@ void loop()
   		//Serial.println("5 minute");	// test print
   		int delta_rec_30s = 0;			//delta time between current and start time
   		int start_rec_30s = micros();	// start record time 30 seconds
+  		// While loop to record 30 seconds of data:
   		while(delta_rec_30s <= 30000000)
 		{
   		    delta_rec_30s = micros() - start_rec_30s;				// delta time calculation 30 seconds 
   		}
   		//Serial.println("exit while loop 30s");	// test print
+  		Current_balaning = true;					// Balance current again
   	}
 
 }
