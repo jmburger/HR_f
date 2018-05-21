@@ -31,8 +31,8 @@ const LEDCurrent LEDCurrent_array[] = {MAX30100_LED_CURR_0MA,         //0
 LEDCurrent IR_current = LEDCurrent_array[15];			//define IR led current (50mA)
 LEDCurrent RED_current = LEDCurrent_array[7];			//define initial Red led current (24mA)
 #define Sample_Rate 	MAX30100_SAMPRATE_100HZ         //define sample rate (100Hz)
-#define Pulse_width     MAX30100_SPC_PW_1600US_16BITS   //define led pulse width (1600)
-#define Highres_mode    true                            //High resolution mode
+#define Pulse_width   MAX30100_SPC_PW_1600US_16BITS   //define led pulse width (1600)
+#define Highres_mode  true                            //High resolution mode
 
 //Variables store raw RED and IR values
 uint16_t raw_IR_Val = 0;
@@ -65,14 +65,13 @@ int time_300s = micros();		// time 5 minutes
 
 // Flags for timer:
 bool time_flag = false;
-
-
-
+bool recording = false;        //indicate which recording is taking place true = 5's and false =30's
+bool Data_available = false;   //indicate that data is available for processing
 void setup() 
 {
 	Serial.begin(115200);
 
-  	// Temperature sensor:
+  // Temperature sensor:
 	//Wire.begin();
 	//temp_sensor.begin();					// Start sensor
 	//temp_sensor.setMode(MODE_SLEEP);		// Put sensor in sleep mode 
@@ -83,13 +82,16 @@ void setup()
 }
 
 void loop() 
-{ 	
-	// Current balancing for Sp02 calculation:
-	// This balancing is going to take place every 5 minutes:
-	if (Current_balaning == true)
-	{
-		MAX30100_Startup();					// start-up the MAX30100 sensor
-		// Warm Up:
+{
+  // Varabiles:
+  float IR_AC_array[3000];           // IR signal AC array_.
+  float SSF_output[3000];            //SSF output array_.
+  // Current balancing for Sp02 calculation:
+  // This balancing is going to take place every 5 minutes:
+  if (Current_balaning == true)
+  {
+  	MAX30100_Startup();					// start-up the MAX30100 sensor
+  	// Warm Up:
   	int delta_warmup = 0;				// delta time of warm up
   	int start_warmup = micros();		// start time of warm up (1,5 second)
   	while(delta_warmup <= 1500000)		
@@ -97,134 +99,230 @@ void loop()
       MAX30100_sensor.update();   // Update sensor
   		delta_warmup = micros() - start_warmup;		// delta time of warm up
   	}
-		int delta_3s = 0;					// delta time between current and start time
-		int start_3s = micros();			// start 3 second current balancing
-		while(delta_3s <= 3000000)
-		{
-			delta_3s = micros() - start_3s; 				// delta time calculation 3 seconds
-			// if raw data is available 
-			MAX30100_sensor.update();		// Update sensor
-    		if (MAX30100_sensor.getRawValues(&raw_IR_Val, &raw_RED_Val))
-    		{
-				//Get DC value from IR signal:
-      			IR_DC = true;
-      			float IR_DC_val = DCR_function_IR(raw_IR_Val, ALPHA_DCR, IR_DC);       //Get DC value from IR signal
-      
-				//Get DC value from RED signal:
-      			RED_DC = true;
-				float RED_DC_val = DCR_function_RED(raw_RED_Val, ALPHA_DCR, RED_DC);    //Get DC value from RED signal
-				
-				//RED and IR DC current balancing:
-      			if (IR_DC_val - RED_DC_val > ACCEPTABLE_CURRENT_DIFF && RED_current < MAX30100_LED_CURR_50MA)
-      			{
-        			counter++;
-        			RED_current = LEDCurrent_array[counter];          			//change RED LED's current
-        			MAX30100_sensor.setLedsCurrent(IR_current, RED_current);   	//Set led's current IR and Red respectively
-        		}
-      			if (RED_DC_val - IR_DC_val > ACCEPTABLE_CURRENT_DIFF && RED_current > 0)
-     			{
-        			counter--;
-        			RED_current = LEDCurrent_array[counter];          			//change RED LED's current
-        			MAX30100_sensor.setLedsCurrent(IR_current, RED_current);   	//Set led's current IR and Red respectively
-        		}
-        		// Test print: 
-      			//Serial.print(RED_DC_val); 
-      			//Serial.print(" , ");
-      			//Serial.println(IR_DC_val);
-			}
-		}
-		Current_balaning = false;			// Current balancing complete
-		MAX30100_sensor.shutdown();				// Shutdown MAX30100 sensor
-	}
-  	//Every 10 seconds record 5's of HR and Sp02:
-  	int time_10s_micro = micros();
-  	if (time_10s_micro - time_10s >= 10000000)
+  	int delta_3s = 0;					// delta time between current and start time
+  	int start_3s = micros();			// start 3 second current balancing
+  	while(delta_3s <= 3000000)
   	{
-  		time_10s = micros();		// redefine time
-  		// insert code below:
-  		MAX30100_Startup();					// start-up the MAX30100 sensor
-  		// Warm Up:
-  		int delta_warmup = 0;				// delta time of warm up
-  		int start_warmup = micros();		// start time of warm up (1,5 second)
-  		while(delta_warmup <= 1500000)		
-  		{
-        MAX30100_sensor.update();   // Update sensor
-  			delta_warmup = micros() - start_warmup;		// delta time of warm up
-  		}
-  		//Serial.println("10 seconds");	// test print
-  		int i = 0;                          //Counter
-  		float IR_AC_array[500];				// IR signal AC array_.
-  		float Sum_AC_IR = 0;				//Sum of the IR AC signal value
-  		float Sum_AC_RED = 0;				//Sum of the RED AC signal value
-  		int delta_rec_5s = 0;				// delta time between current and start time
-  		int start_rec_5s = micros();		// start record time 5 seconds
-  		// while loop to record 5 seconds of data:
-  		while(delta_rec_5s <= 5000000)
-  		{
-  			delta_rec_5s = micros() - start_rec_5s; 				// delta time calculation 5 seconds
-  			// if raw data is available 
-			  MAX30100_sensor.update();		// Update sensor
-    		if (MAX30100_sensor.getRawValues(&raw_IR_Val, &raw_RED_Val))
-    		{
-    			// IR Signal:
-      			IR_DC = false;
-     			  IR_AC_array[i] = DCR_function_IR(raw_IR_Val, ALPHA_DCR, IR_DC);     	  //filter raw IR LED data through DC removal
-      			//Calculating AC RMS value:
-      			Sum_AC_IR += pow((IR_AC_array[i]),2);                                   //Sum of the IR AC signal value
-      			//Add filtering to raw values:
-      			IR_AC_array[i] = MDF_function(IR_AC_array[i]);                         	//mean difference filter IR LED data 
-      			IR_AC_array[i] = Butterworth_LPF_function(IR_AC_array[i]);             	//low pass butterworth filter IR LED data
-            	//Get DC value from signal:
-      			IR_DC = true;
-      			float IR_DC_val = DCR_function_IR(raw_IR_Val, ALPHA_DCR, IR_DC);       	//Get DC value from IR signal
-      
-      			// RED Signal:
-      			RED_DC = false;
-      			float RED_AC_value = DCR_function_RED(raw_RED_Val, ALPHA_DCR, RED_DC);  //filter raw RED LED data through DC removal
-      			//Calculating AC RMS value:
-      			Sum_AC_RED += pow((RED_AC_value),2);                                   	//Sum of the RED AC signal value
-      			//Get DC value from signal
-      			RED_DC = true;
-      			float RED_DC_val = DCR_function_RED(raw_RED_Val, ALPHA_DCR, RED_DC);    //Get DC value from RED signal
+  		delta_3s = micros() - start_3s; 				// delta time calculation 3 seconds
+  		// if raw data is available 
+  		MAX30100_sensor.update();		// Update sensor
+    	if (MAX30100_sensor.getRawValues(&raw_IR_Val, &raw_RED_Val))
+    	{
+  	    //Get DC value from IR signal:
+  			IR_DC = true;
+  			float IR_DC_val = DCR_function_IR(raw_IR_Val, ALPHA_DCR, IR_DC);       //Get DC value from IR signal
 
-      			// Test Print:
-      			Serial.println(IR_AC_array[i]);
+  	    //Get DC value from RED signal:
+  			RED_DC = true;
+  	    float RED_DC_val = DCR_function_RED(raw_RED_Val, ALPHA_DCR, RED_DC);    //Get DC value from RED signal
+  	
+  	    //RED and IR DC current balancing:
+  			if (IR_DC_val - RED_DC_val > ACCEPTABLE_CURRENT_DIFF && RED_current < MAX30100_LED_CURR_50MA)
+  			{
+    			counter++;
+    			RED_current = LEDCurrent_array[counter];          			              //change RED LED's current
+    			MAX30100_sensor.setLedsCurrent(IR_current, RED_current);   	          //Set led's current IR and Red respectively
     		}
-    		i++;
+  			if (RED_DC_val - IR_DC_val > ACCEPTABLE_CURRENT_DIFF && RED_current > 0)
+  			  {
+    			counter--;
+    			RED_current = LEDCurrent_array[counter];          			              //change RED LED's current
+    			MAX30100_sensor.setLedsCurrent(IR_current, RED_current);   	          //Set led's current IR and Red respectively
+    		}
+    		// Test print: 
+  			//Serial.print(RED_DC_val); 
+  			//Serial.print(" , ");
+  			//Serial.println(IR_DC_val);
   		}
-  		//Serial.println("exit while loop 5s");	// test print
-  		MAX30100_sensor.shutdown();				// Shutdown MAX30100 sensor	
   	}
-
-  	//Every minute take a temperature reading:
-  	int time_60s_micro = micros();
-	if (time_60s_micro - time_60s >= 60000000)
-	{
-		time_60s = micros();		// redefine time
-		//insert code below:
-		//Serial.println("60 seconds");		// test print
-		//float Core_body_temp = temp_sensor.getObjectTemp();			// Get core body temperature
-		//Serial.println(Core_body_temp);								// print core body temperature ever 1 minute.
-	}
-
-	//Every 5 minutes record 30's of HR and Sp02 for RR and B2B:
-	int time_300s_micro = micros();
-  	if (time_300s_micro - time_300s >= 300000000)
+  	Current_balaning = false;			// Current balancing complete
+  	MAX30100_sensor.shutdown();				// Shutdown MAX30100 sensor
+  }
+  //Every 10 seconds record 5's of HR and Sp02:
+  int time_10s_micro = micros();
+  if (time_10s_micro - time_10s >= 10000000 && Current_balaning == false)
+  {
+    recording = true;       // data recording 5's is taking place 
+  	time_10s = micros();		// redefine time
+  	// insert code below:
+  	MAX30100_Startup();					// start-up the MAX30100 sensor
+  	// Warm Up:
+  	int delta_warmup = 0;				// delta time of warm up
+  	int start_warmup = micros();		// start time of warm up (1,5 second)
+  	while(delta_warmup <= 1500000)		
   	{
-  		time_300s = micros();		// redefine time
-  		//insert code below:
-  		//Serial.println("5 minute");	// test print
-  		int delta_rec_30s = 0;			//delta time between current and start time
-  		int start_rec_30s = micros();	// start record time 30 seconds
-  		// While loop to record 30 seconds of data:
-  		while(delta_rec_30s <= 30000000)
-		{
-  		    delta_rec_30s = micros() - start_rec_30s;				// delta time calculation 30 seconds 
-  		}
-  		//Serial.println("exit while loop 30s");	// test print
-  		Current_balaning = true;					// Balance current again
+      MAX30100_sensor.update();   // Update sensor
+  		delta_warmup = micros() - start_warmup;		// delta time of warm up
   	}
+  	//Serial.println("10 seconds");	  // test print
+    // 5 seconds recording required varabiles
+  	int i = 0;                        //Counter
+  	float Sum_AC_IR = 0;				      //Sum of the IR AC signal value
+  	float Sum_AC_RED = 0;				      //Sum of the RED AC signal value
+  	int delta_rec_5s = 0;				      // delta time between current and start time
+  	int start_rec_5s = micros();		  // start record time 5 seconds
+  	// while loop to record 5 seconds of data:
+  	while(delta_rec_5s <= 5000000)
+  	{
+  		// if raw data is available 
+  	  MAX30100_sensor.update();		// Update sensor
+  		if (MAX30100_sensor.getRawValues(&raw_IR_Val, &raw_RED_Val))
+  		{
+  		  // IR Signal:
+  			IR_DC = false;
+  			IR_AC_array[i] = DCR_function_IR(raw_IR_Val, ALPHA_DCR, IR_DC);     	  //filter raw IR LED data through DC removal
+  			//Calculating AC RMS value:
+  			Sum_AC_IR += pow((IR_AC_array[i]),2);                                   //Sum of the IR AC signal value
+  			//Add filtering to raw values:
+  			IR_AC_array[i] = MDF_function(IR_AC_array[i]);                         	//mean difference filter IR LED data 
+  			IR_AC_array[i] = Butterworth_LPF_function(IR_AC_array[i]);             	//low pass butterworth filter IR LED data
+        //Get DC value from signal:
+  			IR_DC = true;
+  			float IR_DC_val = DCR_function_IR(raw_IR_Val, ALPHA_DCR, IR_DC);       	//Get DC value from IR signal
 
+  			// RED Signal:
+  			RED_DC = false;
+  			float RED_AC_value = DCR_function_RED(raw_RED_Val, ALPHA_DCR, RED_DC);  //filter raw RED LED data through DC removal
+  			//Calculating AC RMS value:
+  			Sum_AC_RED += pow((RED_AC_value),2);                                   	//Sum of the RED AC signal value
+  			//Get DC value from signal
+  			RED_DC = true;
+  			float RED_DC_val = DCR_function_RED(raw_RED_Val, ALPHA_DCR, RED_DC);    //Get DC value from RED signal
+        
+        i++;
+        if (i > 500)
+        {
+          break;
+        }
+  			// Test Print:
+  			//Serial.println(IR_AC_array[i]);
+        //Serial.println(SSF_output[i]);
+        //Serial.println(i);
+  		}
+      delta_rec_5s = micros() - start_rec_5s;         // delta time calculation 5 seconds
+  	}
+  	//Serial.println("exit while loop 5s");	// test print
+  	MAX30100_sensor.shutdown();				// Shutdown MAX30100 sensor	
+    Data_available = true;            // Data needs processing
+  }
+
+  //Every minute take a temperature reading:
+  // int time_60s_micro = micros();
+  // if (time_60s_micro - time_60s >= 60000000 && Current_balaning == false)
+  // {
+  // 	time_60s = micros();		// redefine time
+  // 	//insert code below:
+  // 	//Serial.println("60 seconds");		// test print
+  // 	//float Core_body_temp = temp_sensor.getObjectTemp();			// Get core body temperature
+  // 	//Serial.println(Core_body_temp);								// print core body temperature ever 1 minute.
+  // }
+
+  // //Every 5 minutes record 30's of HR and Sp02 for RR and B2B:
+  int time_300s_micro = micros();
+  if (time_300s_micro - time_300s >= 300000000 && Current_balaning == false)
+  {
+    recording = false;       // data recording 30's is taking place
+  	time_300s = micros();		// redefine time
+    // insert code below:
+    MAX30100_Startup();         // start-up the MAX30100 sensor
+    // Warm Up:
+    int delta_warmup = 0;       // delta time of warm up
+    int start_warmup = micros();    // start time of warm up (1,5 second)
+    while(delta_warmup <= 1500000)    
+    {
+      MAX30100_sensor.update();   // Update sensor
+      delta_warmup = micros() - start_warmup;   // delta time of warm up
+    }
+  	//Serial.println("5 minute");	// test print
+    // 30 seconds recording required varabiles
+    int i = 0;                  //Counter
+    float Sum_AC_IR = 0;        //Sum of the IR AC signal value
+    float Sum_AC_RED = 0;       //Sum of the RED AC signal value
+  	int delta_rec_30s = 0;			//delta time between current and start time
+  	int start_rec_30s = micros();	// start record time 30 seconds
+  	// While loop to record 30 seconds of data:
+  	while(delta_rec_30s <= 30000000)
+    {
+      // if raw data is available 
+      MAX30100_sensor.update();   // Update sensor
+      if (MAX30100_sensor.getRawValues(&raw_IR_Val, &raw_RED_Val))
+      {
+        // IR Signal:
+        IR_DC = false;
+        IR_AC_array[i] = DCR_function_IR(raw_IR_Val, ALPHA_DCR, IR_DC);         //filter raw IR LED data through DC removal
+        //Calculating AC RMS value:
+        Sum_AC_IR += pow((IR_AC_array[i]),2);                                   //Sum of the IR AC signal value
+        //Add filtering to raw values:
+        IR_AC_array[i] = MDF_function(IR_AC_array[i]);                          //mean difference filter IR LED data 
+        IR_AC_array[i] = Butterworth_LPF_function(IR_AC_array[i]);              //low pass butterworth filter IR LED data
+        //Get DC value from signal:
+        IR_DC = true;
+        float IR_DC_val = DCR_function_IR(raw_IR_Val, ALPHA_DCR, IR_DC);        //Get DC value from IR signal
+
+        // RED Signal:
+        RED_DC = false;
+        float RED_AC_value = DCR_function_RED(raw_RED_Val, ALPHA_DCR, RED_DC);  //filter raw RED LED data through DC removal
+        //Calculating AC RMS value:
+        Sum_AC_RED += pow((RED_AC_value),2);                                    //Sum of the RED AC signal value
+        //Get DC value from signal
+        RED_DC = true;
+        float RED_DC_val = DCR_function_RED(raw_RED_Val, ALPHA_DCR, RED_DC);    //Get DC value from RED signal
+        
+        i++;
+        if (i > 3000)
+        {
+          break;
+        }
+        // Test Print:
+        //Serial.println(IR_AC_array[i]);
+        //Serial.println(SSF_output[i]);
+        //Serial.println(i);
+      }
+      delta_rec_30s = micros() - start_rec_30s;				// delta time calculation 30 seconds 
+  	}
+  	//Serial.println("exit while loop 30s");	// test print
+    MAX30100_sensor.shutdown();       // Shutdown MAX30100 sensor 
+  	Current_balaning = true;					// Balance current again
+    Data_available = true;            // Data needs processing 
+  }
+  
+
+  // Data processing:
+  if (Data_available == true)
+  {
+    // Recording size:
+    int size = 500;
+    if (recording == false)
+    {
+      size = 3000;
+    }
+    // Slope Sum Function (SSF):
+    int window = 0;         //length of analyzing window
+    float SSF = 0;          //summation in window period
+    for (int i = 0; i < size; i++)
+    {
+      if (i <= window)
+      {
+        SSF_output[i] = 0;      
+      }
+      else
+      {
+        for (int x = window; x >= 0; x--)
+        {
+          SSF = 0;
+          float delta_input = (IR_AC_array[i-window]) - (IR_AC_array[(i-window)-1]);
+          if (delta_input > 0)
+          {
+            SSF += delta_input;          
+          }
+        }
+        SSF_output[i] = SSF;
+      } 
+      //Test print:
+      Serial.println(SSF_output[i]);
+    }
+    Data_available = false;       // Data has been processed
+  }
 }
 
 //-------------------------MAX30100 START UP-----------------------------------------
