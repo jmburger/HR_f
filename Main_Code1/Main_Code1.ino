@@ -162,7 +162,7 @@ void loop()
   	int delta_rec_5s = 0;				      // delta time between current and start time
   	int start_rec_5s = micros();		  // start record time 5 seconds
   	// while loop to record 5 seconds of data:
-  	while(delta_rec_5s <= 5000000)
+  	while(delta_rec_5s <= 5300000)
   	{
   		// if raw data is available 
   	  MAX30100_sensor.update();		// Update sensor
@@ -190,7 +190,7 @@ void loop()
   			float RED_DC_val = DCR_function_RED(raw_RED_Val, ALPHA_DCR, RED_DC);    //Get DC value from RED signal
         
         i++;
-        if (i > 500)
+        if (i >= 550)
         {
           break;
         }
@@ -201,6 +201,8 @@ void loop()
   		}
       delta_rec_5s = micros() - start_rec_5s;         // delta time calculation 5 seconds
   	}
+    // Test print
+    //Serial.println(i);
   	//Serial.println("exit while loop 5s");	// test print
   	MAX30100_sensor.shutdown();				// Shutdown MAX30100 sensor	
     Data_available = true;            // Data needs processing
@@ -241,7 +243,7 @@ void loop()
   	int delta_rec_30s = 0;			//delta time between current and start time
   	int start_rec_30s = micros();	// start record time 30 seconds
   	// While loop to record 30 seconds of data:
-  	while(delta_rec_30s <= 30000000)
+  	while(delta_rec_30s <= 30300000)
     {
       // if raw data is available 
       MAX30100_sensor.update();   // Update sensor
@@ -269,7 +271,7 @@ void loop()
         float RED_DC_val = DCR_function_RED(raw_RED_Val, ALPHA_DCR, RED_DC);    //Get DC value from RED signal
         
         i++;
-        if (i > 3000)
+        if (i >= 3050)
         {
           break;
         }
@@ -280,28 +282,29 @@ void loop()
       }
       delta_rec_30s = micros() - start_rec_30s;				// delta time calculation 30 seconds 
   	}
+    // Test print:
+    //Serial.println(i);
   	//Serial.println("exit while loop 30s");	// test print
     MAX30100_sensor.shutdown();       // Shutdown MAX30100 sensor 
   	Current_balaning = true;					// Balance current again
     Data_available = true;            // Data needs processing 
   }
-  
 
   // Data processing:
   if (Data_available == true)
   {
     // Recording size:
-    int size = 500;
+    int size = 550;
     if (recording == false)
     {
-      size = 3000;
+      size = 3050;
     }
     // Slope Sum Function (SSF):
-    int window = 0;         //length of analyzing window
-    float SSF = 0;          //summation in window period
-    for (int i = 0; i < size; i++)
+    int window = 10;         //length of analyzing window
+    float SSF = 0;           //summation in window period
+    for (int i = 50; i < size; i++)
     {
-      if (i <= window)
+      if (i <= (window+50))
       {
         SSF_output[i] = 0;      
       }
