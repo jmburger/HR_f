@@ -90,12 +90,13 @@ void loop()
 	{
 		MAX30100_Startup();					// start-up the MAX30100 sensor
 		// Warm Up:
-  		//int delta_warmup = 0;				// delta time of warm up
-  		//int start_warmup = micros();		// start time of warm up (1 second)
-  		//while(delta_warmup <= 1000000)		
-  		//{
-  		//	delta_warmup = micros() - start_warmup;		// delta time of warm up
-  		//}
+  	int delta_warmup = 0;				// delta time of warm up
+  	int start_warmup = micros();		// start time of warm up (1,5 second)
+  	while(delta_warmup <= 1500000)		
+  	{
+      MAX30100_sensor.update();   // Update sensor
+  		delta_warmup = micros() - start_warmup;		// delta time of warm up
+  	}
 		int delta_3s = 0;					// delta time between current and start time
 		int start_3s = micros();			// start 3 second current balancing
 		while(delta_3s <= 3000000)
@@ -143,12 +144,13 @@ void loop()
   		// insert code below:
   		MAX30100_Startup();					// start-up the MAX30100 sensor
   		// Warm Up:
-  		//int delta_warmup = 0;				// delta time of warm up
-  		//int start_warmup = micros();		// start time of warm up (1 second)
-  		//while(delta_warmup <= 1000000)		
-  		//{
-  		//	delta_warmup = micros() - start_warmup;		// delta time of warm up
-  		//}
+  		int delta_warmup = 0;				// delta time of warm up
+  		int start_warmup = micros();		// start time of warm up (1,5 second)
+  		while(delta_warmup <= 1500000)		
+  		{
+        MAX30100_sensor.update();   // Update sensor
+  			delta_warmup = micros() - start_warmup;		// delta time of warm up
+  		}
   		//Serial.println("10 seconds");	// test print
   		int i = 0;                          //Counter
   		float IR_AC_array[500];				// IR signal AC array_.
@@ -161,12 +163,12 @@ void loop()
   		{
   			delta_rec_5s = micros() - start_rec_5s; 				// delta time calculation 5 seconds
   			// if raw data is available 
-			MAX30100_sensor.update();		// Update sensor
+			  MAX30100_sensor.update();		// Update sensor
     		if (MAX30100_sensor.getRawValues(&raw_IR_Val, &raw_RED_Val))
     		{
     			// IR Signal:
       			IR_DC = false;
-     			IR_AC_array[i] = DCR_function_IR(raw_IR_Val, ALPHA_DCR, IR_DC);     	//filter raw IR LED data through DC removal
+     			  IR_AC_array[i] = DCR_function_IR(raw_IR_Val, ALPHA_DCR, IR_DC);     	  //filter raw IR LED data through DC removal
       			//Calculating AC RMS value:
       			Sum_AC_IR += pow((IR_AC_array[i]),2);                                   //Sum of the IR AC signal value
       			//Add filtering to raw values:
@@ -174,7 +176,7 @@ void loop()
       			IR_AC_array[i] = Butterworth_LPF_function(IR_AC_array[i]);             	//low pass butterworth filter IR LED data
             	//Get DC value from signal:
       			IR_DC = true;
-      			float IR_DC_val = DCR_function_IR(raw_IR_Val, ALPHA_DCR, IR_DC);       		//Get DC value from IR signal
+      			float IR_DC_val = DCR_function_IR(raw_IR_Val, ALPHA_DCR, IR_DC);       	//Get DC value from IR signal
       
       			// RED Signal:
       			RED_DC = false;
@@ -183,7 +185,7 @@ void loop()
       			Sum_AC_RED += pow((RED_AC_value),2);                                   	//Sum of the RED AC signal value
       			//Get DC value from signal
       			RED_DC = true;
-      			float RED_DC_val = DCR_function_RED(raw_RED_Val, ALPHA_DCR, RED_DC);    		//Get DC value from RED signal
+      			float RED_DC_val = DCR_function_RED(raw_RED_Val, ALPHA_DCR, RED_DC);    //Get DC value from RED signal
 
       			// Test Print:
       			Serial.println(IR_AC_array[i]);
