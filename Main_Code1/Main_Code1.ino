@@ -300,13 +300,14 @@ void loop()
       size = 3050;
     }
     // Slope Sum Function (SSF):
-    int window = 10;         //length of analyzing window
+    int window = 6;         //length of analyzing window
+    int j = 0;               //new counter
     float SSF = 0;           //summation in window period
     for (int i = 50; i < size; i++)
     {
       if (i <= (window+50))
       {
-        SSF_output[i] = 0;      
+        SSF_output[j] = 0;
       }
       else
       {
@@ -319,14 +320,84 @@ void loop()
             SSF += delta_input;          
           }
         }
-        SSF_output[i] = SSF;
+        SSF_output[j] = SSF;
       } 
+      j++;
       //Test print:
-      Serial.println(SSF_output[i]);
+      //Serial.println(SSF_output[j]);
     }
+
+    // Peak Detection:
+    // Learning period:
+    // Recording size:
+    int size_BD = 500;
+    int expected_peaks = 3;               // Expected peaks/beats if heart rate is lower than 40 BPM
+    if (recording == false)
+    {
+      //Test print:
+      Serial.println("Hi");
+      size_BD = 3000;
+      expected_peaks = 20;                // Expected peaks/beats if heart rate is lower than 40 BPM
+    }
+    float Beat_array[expected_peaks];     // Store detected peaks in array_
+    float Peak = 0;                       // Vale of peak detected
+    bool Peak_detected = false;           // When a peak is detected it becomes true otherwise false
+    //Identifies the highest peaks of the of the number of expected peaks.
+    for (int i = 0; i < size_BD; i++)
+    {
+      // Test print:
+      //Serial.println(SSF_output[i]);
+      if(SSF_output[i-1] < SSF_output[i] && SSF_output[i] > SSF_output[i+1])
+      { 
+        Peak = SSF_output[i];
+        Peak_detected = true;
+        for (int j = expected_peaks - 1; j >= 0; j--)
+        { 
+          if (Peak > Beat_array[j] && Peak_detected == true)
+          {
+            for(int p = 1; p <= j; p++)
+            {
+              Beat_array[p-1] = Beat_array[p];
+            }
+            Beat_array[j] = Peak;
+            Peak_detected = false;
+          }
+        }
+      } 
+    }
+    // Test result of beat array_:
+    Serial.println("-----------");
+    for(int x = 0; x < expected_peaks; x++)
+    {
+      Serial.println(Beat_array[x]);
+      Beat_array[x] = 0;
+    }  
+
+    // empty array_ by replacing values with zeros:
+    //for(int x = 0; x < expected_peaks; x++)
+    //{
+    //  Beat_array[x] = 0;
+    //}  
+
     Data_available = false;       // Data has been processed
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 //-------------------------MAX30100 START UP-----------------------------------------
 void MAX30100_Startup()
