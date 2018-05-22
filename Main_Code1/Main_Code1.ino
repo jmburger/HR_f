@@ -338,12 +338,16 @@ void loop()
     // Learning period:
     // Recording size:
     size = 500;
+    float factor_ = 0.81;                 // Better the BPM accuracy
+    int FT = 12;                          // Time multiply factor 5 seconds to 60 seconds
     int expected_peaks = 3;               // Expected peaks/beats if heart rate is lower than 40 BPM
     if (recording == false)
     {
       //Test print:
       Serial.println("Hi");
+      factor_ = 0.95;                     // Better the BPM accuracy
       size = 3000;
+      FT = 2;                             // Time multiply factor 30 seconds to 60 seconds
       expected_peaks = 20;                // Expected peaks/beats if heart rate is lower than 40 BPM
     }
     float Beat_array[expected_peaks];     // Store detected peaks in array_
@@ -399,9 +403,9 @@ void loop()
     // Counting the peaks to calculate BPM:
     int Peak_count = 0;                   // Counter to count the number of peaks
     int P2p_time_start = 0;               // Peak to peak start time
-    int Start_delta_rec5s = micros();     // start of the total recording time (5 seconds)
+    int Start_delta = micros();     // start of the total recording time (5 seconds)
     int Sum_of_p2p_times = 0;             // sum of the times between peaks in the 5 second recording
-    for(int i = 0; i < 500; i++)
+    for(int i = 0; i < size; i++)
     {  
       if (SSF_output[i] > threshold)      //Count peaks above threshold (beats) 
       {
@@ -419,23 +423,22 @@ void loop()
         }
       }
     }
-    int End_delta_rec5s = micros() - Start_delta_rec5s;        // Delta time of the for loop for the 5 seconds
+    int End_delta = micros() - Start_delta;        // Delta time of the for loop for the 5 seconds
     // Test print:
     //Serial.println(Sum_of_p2p_times);
     //Serial.println(End_delta_rec5s);
 
     //BPM calculation:
-    float factor_5s = 0.81;                                  // Better the BPM accuracy
-    int Total_60s = End_delta_rec5s*12;                     // Taking the 5 seconds to 60 seconds
+    int Total_60s = End_delta*FT;                           // Taking the 5 seconds/ 30 seconds to 60 seconds
     int Avg_p2p_time = Sum_of_p2p_times/Peak_count;         // Average peak to peak time in 5 second recording 
-    int BPM = int(Total_60s/(Avg_p2p_time)*factor_5s);      // Calculating the beats per minute
+    int BPM = int(Total_60s/(Avg_p2p_time)*factor_);      // Calculating the beats per minute
     // Test print:
-    //Serial.print("BPM: ");
-    //Serial.println(BPM);
+    Serial.print("BPM: ");
+    Serial.println(BPM);
 
     //SpO2 calculation:
-    float RMS_AC_IR = sqrt(Sum_AC_IR/550);                      //RMS of the IR AC signal
-    float RMS_AC_RED = sqrt(Sum_AC_RED/550);                    //RMS of the RED AC signal
+    float RMS_AC_IR = sqrt(Sum_AC_IR/size);                     //RMS of the IR AC signal
+    float RMS_AC_RED = sqrt(Sum_AC_RED/size);                   //RMS of the RED AC signal
     float R = (RMS_AC_RED/RED_DC_val)/(RMS_AC_IR/IR_DC_val);    //R value used to calculate Sp02
     float SpO2 = 110 - 25*R;                                    //Sp02 value
     // Test print:
