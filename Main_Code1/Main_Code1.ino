@@ -330,20 +330,20 @@ void loop()
     // Peak Detection:
     // Learning period:
     // Recording size:
-    int size_BD = 500;
+    size = 500;
     int expected_peaks = 3;               // Expected peaks/beats if heart rate is lower than 40 BPM
     if (recording == false)
     {
       //Test print:
       Serial.println("Hi");
-      size_BD = 3000;
+      size = 3000;
       expected_peaks = 20;                // Expected peaks/beats if heart rate is lower than 40 BPM
     }
     float Beat_array[expected_peaks];     // Store detected peaks in array_
     float Peak = 0;                       // Vale of peak detected
     bool Peak_detected = false;           // When a peak is detected it becomes true otherwise false
     //Identifies the highest peaks of the of the number of expected peaks.
-    for (int i = 0; i < size_BD; i++)
+    for (int i = 0; i < size; i++)
     {
       // Test print:
       //Serial.println(SSF_output[i]);
@@ -366,18 +366,27 @@ void loop()
       } 
     }
     // Test result of beat array_:
-    Serial.println("-----------");
-    for(int x = 0; x < expected_peaks; x++)
-    {
-      Serial.println(Beat_array[x]);
-      Beat_array[x] = 0;
-    }  
+    // Serial.println("-----------");
+    // for(int x = 0; x < expected_peaks; x++)
+    // {
+    //  Serial.println(Beat_array[x]);
+    // } 
 
-    // empty array_ by replacing values with zeros:
-    //for(int x = 0; x < expected_peaks; x++)
-    //{
-    //  Beat_array[x] = 0;
-    //}  
+    //Processing Period:
+    //Calculating threshold
+    int Sum_beat_array = 0;                   //Total sum of the beat array_.
+    for(int i = 0; i < expected_peaks; i++)
+    {
+      Sum_beat_array += Beat_array[i];        //Total
+    }
+    int threshold = 0.65*(Sum_beat_array/expected_peaks);  //threshold value for beat detection
+
+    for(int i = 0; i < size; i++)
+    {
+      Serial.print(SSF_output[i]);
+      Serial.print(",");
+      Serial.println(threshold);
+    } 
 
     Data_available = false;       // Data has been processed
   }
