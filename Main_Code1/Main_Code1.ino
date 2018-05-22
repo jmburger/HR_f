@@ -79,9 +79,9 @@ void setup()
 	Serial.begin(115200);
 
   // Temperature sensor:
-	//Wire.begin();
-	//temp_sensor.begin();					// Start sensor
-	//temp_sensor.setMode(MODE_SLEEP);		// Put sensor in sleep mode 
+	Wire.begin();
+	temp_sensor.begin();					      // Start sensor
+	temp_sensor.setMode(MODE_SLEEP);		// Put sensor in sleep mode 
 
 	// MAX30100 sensor:
 	MAX30100_sensor.begin();
@@ -216,15 +216,17 @@ void loop()
   }
 
   //Every minute take a temperature reading:
-  // int time_60s_micro = micros();
-  // if (time_60s_micro - time_60s >= 60000000 && Current_balaning == false)
-  // {
-  // 	time_60s = micros();		// redefine time
-  // 	//insert code below:
-  // 	//Serial.println("60 seconds");		// test print
-  // 	//float Core_body_temp = temp_sensor.getObjectTemp();			// Get core body temperature
-  // 	//Serial.println(Core_body_temp);								// print core body temperature ever 1 minute.
-  // }
+  int time_60s_micro = micros();
+  if (time_60s_micro - time_60s >= 60000000 && Current_balaning == false)
+  {
+  	time_60s = micros();		// redefine time
+  	//insert code below:
+  	//Serial.println("60 seconds");		// test print
+  	float Core_body_temp = temp_sensor.getObjectTemp();			// Get core body temperature
+    // Test print:
+    Serial.println("Core Body Temperature: "); 
+  	Serial.println(Core_body_temp);								// print core body temperature ever 1 minute.
+  }
 
   // //Every 5 minutes record 30's of HR and Sp02 for RR and B2B:
   int time_300s_micro = micros();
