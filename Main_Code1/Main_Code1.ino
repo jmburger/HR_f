@@ -63,10 +63,17 @@ int time_10s = micros(); 		// time 10 seconds
 int time_60s = micros();		// time 1 minute
 int time_300s = micros();		// time 5 minutes
 
+// Recording varibles:
+float Sum_AC_IR = 0;              //Sum of the IR AC signal value
+float Sum_AC_RED = 0;             //Sum of the RED AC signal value
+float IR_DC_val = 0;              // DC value of the IR signal
+float RED_DC_val = 0;             // DC value of the RED signal
+
 // Flags for timer:
 bool time_flag = false;
 bool recording = false;        //indicate which recording is taking place true = 5's and false =30's
 bool Data_available = false;   //indicate that data is available for processing
+
 void setup() 
 {
 	Serial.begin(115200);
@@ -110,11 +117,11 @@ void loop()
     	{
   	    //Get DC value from IR signal:
   			IR_DC = true;
-  			float IR_DC_val = DCR_function_IR(raw_IR_Val, ALPHA_DCR, IR_DC);       //Get DC value from IR signal
+  			IR_DC_val = DCR_function_IR(raw_IR_Val, ALPHA_DCR, IR_DC);       //Get DC value from IR signal
 
   	    //Get DC value from RED signal:
   			RED_DC = true;
-  	    float RED_DC_val = DCR_function_RED(raw_RED_Val, ALPHA_DCR, RED_DC);    //Get DC value from RED signal
+  	    RED_DC_val = DCR_function_RED(raw_RED_Val, ALPHA_DCR, RED_DC);    //Get DC value from RED signal
   	
   	    //RED and IR DC current balancing:
   			if (IR_DC_val - RED_DC_val > ACCEPTABLE_CURRENT_DIFF && RED_current < MAX30100_LED_CURR_50MA)
@@ -157,8 +164,8 @@ void loop()
   	//Serial.println("10 seconds");	  // test print
     // 5 seconds recording required varabiles
   	int i = 0;                        //Counter
-  	float Sum_AC_IR = 0;				      //Sum of the IR AC signal value
-  	float Sum_AC_RED = 0;				      //Sum of the RED AC signal value
+  	Sum_AC_IR = 0;				            //Sum of the IR AC signal value
+  	Sum_AC_RED = 0;				            //Sum of the RED AC signal value
   	int delta_rec_5s = 0;				      // delta time between current and start time
   	int start_rec_5s = micros();		  // start record time 5 seconds
   	// while loop to record 5 seconds of data:
@@ -178,7 +185,7 @@ void loop()
   			IR_AC_array[i] = Butterworth_LPF_function(IR_AC_array[i]);             	//low pass butterworth filter IR LED data
         //Get DC value from signal:
   			IR_DC = true;
-  			float IR_DC_val = DCR_function_IR(raw_IR_Val, ALPHA_DCR, IR_DC);       	//Get DC value from IR signal
+  			IR_DC_val = DCR_function_IR(raw_IR_Val, ALPHA_DCR, IR_DC);       	//Get DC value from IR signal
 
   			// RED Signal:
   			RED_DC = false;
@@ -187,7 +194,7 @@ void loop()
   			Sum_AC_RED += pow((RED_AC_value),2);                                   	//Sum of the RED AC signal value
   			//Get DC value from signal
   			RED_DC = true;
-  			float RED_DC_val = DCR_function_RED(raw_RED_Val, ALPHA_DCR, RED_DC);    //Get DC value from RED signal
+  			RED_DC_val = DCR_function_RED(raw_RED_Val, ALPHA_DCR, RED_DC);    //Get DC value from RED signal
         
         i++;
         if (i >= 550)
@@ -238,8 +245,8 @@ void loop()
   	//Serial.println("5 minute");	// test print
     // 30 seconds recording required varabiles
     int i = 0;                  //Counter
-    float Sum_AC_IR = 0;        //Sum of the IR AC signal value
-    float Sum_AC_RED = 0;       //Sum of the RED AC signal value
+    Sum_AC_IR = 0;              //Sum of the IR AC signal value
+    Sum_AC_RED = 0;             //Sum of the RED AC signal value
   	int delta_rec_30s = 0;			//delta time between current and start time
   	int start_rec_30s = micros();	// start record time 30 seconds
   	// While loop to record 30 seconds of data:
@@ -259,7 +266,7 @@ void loop()
         IR_AC_array[i] = Butterworth_LPF_function(IR_AC_array[i]);              //low pass butterworth filter IR LED data
         //Get DC value from signal:
         IR_DC = true;
-        float IR_DC_val = DCR_function_IR(raw_IR_Val, ALPHA_DCR, IR_DC);        //Get DC value from IR signal
+        IR_DC_val = DCR_function_IR(raw_IR_Val, ALPHA_DCR, IR_DC);        //Get DC value from IR signal
 
         // RED Signal:
         RED_DC = false;
@@ -268,7 +275,7 @@ void loop()
         Sum_AC_RED += pow((RED_AC_value),2);                                    //Sum of the RED AC signal value
         //Get DC value from signal
         RED_DC = true;
-        float RED_DC_val = DCR_function_RED(raw_RED_Val, ALPHA_DCR, RED_DC);    //Get DC value from RED signal
+        RED_DC_val = DCR_function_RED(raw_RED_Val, ALPHA_DCR, RED_DC);    //Get DC value from RED signal
         
         i++;
         if (i >= 3050)
@@ -381,14 +388,61 @@ void loop()
     }
     int threshold = 0.65*(Sum_beat_array/expected_peaks);  //threshold value for beat detection
 
-    for(int i = 0; i < size; i++)
-    {
-      Serial.print(SSF_output[i]);
-      Serial.print(",");
-      Serial.println(threshold);
-    } 
+    // Test print: 
+    // for(int i = 0; i < size; i++)
+    // {
+    //   Serial.print(SSF_output[i]);
+    //   Serial.print(",");
+    //   Serial.println(threshold);
+    // } 
 
-    Data_available = false;       // Data has been processed
+    // Counting the peaks to calculate BPM:
+    int Peak_count = 0;                   // Counter to count the number of peaks
+    int P2p_time_start = 0;               // Peak to peak start time
+    int Start_delta_rec5s = micros();     // start of the total recording time (5 seconds)
+    int Sum_of_p2p_times = 0;             // sum of the times between peaks in the 5 second recording
+    for(int i = 0; i < 500; i++)
+    {  
+      if (SSF_output[i] > threshold)      //Count peaks above threshold (beats) 
+      {
+        if(SSF_output[i-1] < SSF_output[i] && SSF_output[i] > SSF_output[i+1])    //Peak detecting 
+        {
+          Peak_count++;                                        //increment the peak counts       
+          if (Peak_count > 1)
+          {
+            int Delta_p2p_time = micros() - P2p_time_start;    //delta time between peak to peak
+            // Test print:
+            //Serial.println(Delta_p2p_time);
+            Sum_of_p2p_times += Delta_p2p_time;
+          }
+          P2p_time_start = micros();                       //starting time of peak to peak
+        }
+      }
+    }
+    int End_delta_rec5s = micros() - Start_delta_rec5s;        // Delta time of the for loop for the 5 seconds
+    // Test print:
+    //Serial.println(Sum_of_p2p_times);
+    //Serial.println(End_delta_rec5s);
+
+    //BPM calculation:
+    float factor_5s = 0.81;                                  // Better the BPM accuracy
+    int Total_60s = End_delta_rec5s*12;                     // Taking the 5 seconds to 60 seconds
+    int Avg_p2p_time = Sum_of_p2p_times/Peak_count;         // Average peak to peak time in 5 second recording 
+    int BPM = int(Total_60s/(Avg_p2p_time)*factor_5s);      // Calculating the beats per minute
+    // Test print:
+    //Serial.print("BPM: ");
+    //Serial.println(BPM);
+
+    //SpO2 calculation:
+    float RMS_AC_IR = sqrt(Sum_AC_IR/550);                      //RMS of the IR AC signal
+    float RMS_AC_RED = sqrt(Sum_AC_RED/550);                    //RMS of the RED AC signal
+    float R = (RMS_AC_RED/RED_DC_val)/(RMS_AC_IR/IR_DC_val);    //R value used to calculate Sp02
+    float SpO2 = 110 - 25*R;                                    //Sp02 value
+    // Test print:
+    Serial.print("SpO2: ");
+    Serial.println(SpO2);
+
+    Data_available = false;                                    // Data has been processed
   }
 }
 
