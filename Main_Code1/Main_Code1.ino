@@ -63,14 +63,11 @@ int time_10s = micros(); 		// time 10 seconds
 int time_60s = micros();		// time 1 minute
 int time_300s = micros();		// time 5 minutes
 
-// Recording varibles:
-float Sum_AC_IR = 0;              //Sum of the IR AC signal value
-float Sum_AC_RED = 0;             //Sum of the RED AC signal value
-float IR_DC_val = 0;              // DC value of the IR signal
-float RED_DC_val = 0;             // DC value of the RED signal
+
 
 // RR variables:
 int RR_count = 0;
+float Core_body_temp = 0;
 
 // Flags for timer:
 bool time_flag = false;
@@ -96,6 +93,11 @@ void loop()
   // Varabiles:
   float IR_AC_array[3000];           // IR signal AC array_.
   float SSF_output[3000];            //SSF output array_.
+  // Recording varibles:
+  float IR_DC_val = 0;               // DC value of the IR signal
+  float RED_DC_val = 0;              // DC value of the RED signal
+  float Sum_AC_IR = 0;               //Sum of the IR AC signal value
+  float Sum_AC_RED = 0;              //Sum of the RED AC signal value
   // Current balancing for Sp02 calculation:
   // This balancing is going to take place every 5 minutes:
   if (Current_balaning == true)
@@ -225,10 +227,8 @@ void loop()
   	time_60s = micros();		// redefine time
   	//insert code below:
   	//Serial.println("60 seconds");		// test print
-  	float Core_body_temp = temp_sensor.getObjectTemp();			// Get core body temperature
-    // Test print:
-    Serial.println("Core Body Temperature: "); 
-  	Serial.println(Core_body_temp);								// print core body temperature ever 1 minute.
+  	Core_body_temp = temp_sensor.getObjectTemp();			// Get core body temperature
+    
   }
 
   // //Every 5 minutes record 30's of HR and Sp02 for RR and B2B:
@@ -453,12 +453,16 @@ void loop()
       }
     }
 
+    // Test print:
+    Serial.print("Core Body Temperature:  "); 
+    Serial.println(Core_body_temp);               // print core body temperature ever 1 minute.
+
     //BPM calculation:
     int Total_60s = End_delta*FT;                           // Taking the 5 seconds/ 30 seconds to 60 seconds
     int Avg_p2p_time = Sum_of_p2p_times/Peak_count;         // Average peak to peak time in 5 second recording 
     int BPM = int(Total_60s/(Avg_p2p_time)*factor_);        // Calculating the beats per minute
     // Test print:
-    Serial.print("BPM: ");
+    Serial.print("BPM:                    ");
     Serial.println(BPM);
 
     //SpO2 calculation:
@@ -467,14 +471,15 @@ void loop()
     float R = (RMS_AC_RED/RED_DC_val)/(RMS_AC_IR/IR_DC_val);    //R value used to calculate Sp02
     float SpO2 = 110 - 25*R;                                    //Sp02 value
     // Test print:
-    Serial.print("SpO2: ");
+    Serial.print("SpO2:                   ");
     Serial.println(SpO2);
 
     //RR Calculation:
     int RR = RR_count*2;                                        // RR breaths per minute (count 30's times 2)
     // Test print:
-    Serial.print("RR: ");
+    Serial.print("RR:                     ");
     Serial.println(RR);
+    Serial.println("------------------------------");
 
     Data_available = false;                                     // Data has been processed
   }
