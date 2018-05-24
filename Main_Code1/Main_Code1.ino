@@ -54,9 +54,9 @@ float sum = 0;
 float Val[3];
 
 //Current balancing:
-#define ACCEPTABLE_CURRENT_DIFF   2500 //Acceptable current difference between RED current and IR current
-int counter = 8;						// Current array counter
-bool Current_balaning = true;			// Set true when current balancing needs to take place. 
+#define ACCEPTABLE_CURRENT_DIFF   2500  //Acceptable current difference between RED current and IR current
+int counter = 8;						            // Current array_ counter
+bool Current_balaning = true;			      // Set true when current balancing needs to take place. 
 
 // Timer variables:
 int time_10s = micros(); 		// time 10 seconds
@@ -68,6 +68,9 @@ float Sum_AC_IR = 0;              //Sum of the IR AC signal value
 float Sum_AC_RED = 0;             //Sum of the RED AC signal value
 float IR_DC_val = 0;              // DC value of the IR signal
 float RED_DC_val = 0;             // DC value of the RED signal
+
+// RR variables:
+int RR_count = 0;
 
 // Flags for timer:
 bool time_flag = false;
@@ -346,7 +349,7 @@ void loop()
     if (recording == false)
     {
       //Test print:
-      Serial.println("Hi");
+      //Serial.println("Hi");
       factor_ = 0.95;                     // Better the BPM accuracy
       size = 3000;
       FT = 2;                             // Time multiply factor 30 seconds to 60 seconds
@@ -402,38 +405,58 @@ void loop()
     //   Serial.println(threshold);
     // } 
 
-    // Counting the peaks to calculate BPM:
+    // Counting the peaks to calculate BPM and RR:
     int Peak_count = 0;                   // Counter to count the number of peaks
     int P2p_time_start = 0;               // Peak to peak start time
-    int Start_delta = micros();     // start of the total recording time (5 seconds)
+    int Start_delta = micros();           // start of the total recording time (5 seconds)
     int Sum_of_p2p_times = 0;             // sum of the times between peaks in the 5 second recording
+    int Delta_p2p_time[110];              // Peak to peak delta time
     for(int i = 0; i < size; i++)
     {  
       if (SSF_output[i] > threshold)      //Count peaks above threshold (beats) 
       {
         if(SSF_output[i-1] < SSF_output[i] && SSF_output[i] > SSF_output[i+1])    //Peak detecting 
         {
-          Peak_count++;                                        //increment the peak counts       
+          Peak_count++;                                     //increment the peak counts       
           if (Peak_count > 1)
           {
-            int Delta_p2p_time = micros() - P2p_time_start;    //delta time between peak to peak
+            Delta_p2p_time[Peak_count-2] = micros() - P2p_time_start;    //delta time between peak to peak
             // Test print:
-            //Serial.println(Delta_p2p_time);
-            Sum_of_p2p_times += Delta_p2p_time;
+            //Serial.println(Delta_p2p_time[Peak_count-2]);
+            Sum_of_p2p_times += Delta_p2p_time[Peak_count-2];
           }
-          P2p_time_start = micros();                       //starting time of peak to peak
+          P2p_time_start = micros();                        //starting time of peak to peak
         }
       }
     }
-    int End_delta = micros() - Start_delta;        // Delta time of the for loop for the 5 seconds
+    int End_delta = micros() - Start_delta;                 // Delta time of the for loop for the 5 seconds
     // Test print:
     //Serial.println(Sum_of_p2p_times);
     //Serial.println(End_delta_rec5s);
 
+    // Calculating respiratory rate (RR):
+    if (recording == false)
+    {
+      // Test print:
+      //Serial.println("----------");
+      //Serial.println(Delta_p2p_time[0]);
+      for ( int i = 1; i < Peak_count-2; i++)
+      {
+        // Test print:
+        //Serial.println(Delta_p2p_time[i]);
+        if(Delta_p2p_time[i-1] < Delta_p2p_time[i] && Delta_p2p_time[i] > Delta_p2p_time[i+1])
+        {
+          RR_count++;                                       // count breaths
+          // Test print:
+          //Serial.println("-----");
+        }
+      }
+    }
+
     //BPM calculation:
     int Total_60s = End_delta*FT;                           // Taking the 5 seconds/ 30 seconds to 60 seconds
     int Avg_p2p_time = Sum_of_p2p_times/Peak_count;         // Average peak to peak time in 5 second recording 
-    int BPM = int(Total_60s/(Avg_p2p_time)*factor_);      // Calculating the beats per minute
+    int BPM = int(Total_60s/(Avg_p2p_time)*factor_);        // Calculating the beats per minute
     // Test print:
     Serial.print("BPM: ");
     Serial.println(BPM);
@@ -447,7 +470,13 @@ void loop()
     Serial.print("SpO2: ");
     Serial.println(SpO2);
 
-    Data_available = false;                                    // Data has been processed
+    //RR Calculation:
+    int RR = RR_count*2;                                        // RR breaths per minute (count 30's times 2)
+    // Test print:
+    Serial.print("RR: ");
+    Serial.println(RR);
+
+    Data_available = false;                                     // Data has been processed
   }
 }
 
