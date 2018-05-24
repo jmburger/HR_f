@@ -90,8 +90,8 @@ void setup()
 void loop() 
 {
   // Varabiles:
-  float IR_AC_array[3000];           // IR signal AC array_.
-  float SSF_output[3000];            //SSF output array_.
+  float IR_AC_array[3050];           // IR signal AC array_.
+  float SSF_output[3050];            //SSF output array_.
   // Recording varibles:
   float IR_DC_val = 0;               // DC value of the IR signal
   float RED_DC_val = 0;              // DC value of the RED signal
@@ -199,7 +199,7 @@ void loop()
   			//Get DC value from signal
   			RED_DC = true;
   			RED_DC_val = DCR_function_RED(raw_RED_Val, ALPHA_DCR, RED_DC);    //Get DC value from RED signal
-        
+
         i++;
         if (i >= 550)
         {
@@ -296,7 +296,15 @@ void loop()
     //Serial.println(i);
   	//Serial.println("exit while loop 30s");	// test print
     MAX30100_sensor.shutdown();       // Shutdown MAX30100 sensor 
-  	Current_balaning = true;					// Balance current again
+    // Initial startup does  not require to do current balancing again:
+    if (Startup == true)
+    {
+      Current_balaning = false;
+    }
+    else
+    {
+      Current_balaning = true;          // Balance current again
+    }
     Data_available = true;            // Data needs processing 
   }
 
