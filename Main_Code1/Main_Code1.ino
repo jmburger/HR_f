@@ -54,7 +54,7 @@ float sum = 0;
 float Val[3];
 
 //Current balancing:
-#define ACCEPTABLE_CURRENT_DIFF   2500  //Acceptable current difference between RED current and IR current
+#define ACCEPTABLE_CURRENT_DIFF   2500  // Acceptable current difference between RED current and IR current
 int counter = 8;						            // Current array_ counter
 bool Current_balaning = true;			      // Set true when current balancing needs to take place. 
 
@@ -62,8 +62,6 @@ bool Current_balaning = true;			      // Set true when current balancing needs t
 int time_10s = micros(); 		// time 10 seconds
 int time_60s = micros();		// time 1 minute
 int time_300s = micros();		// time 5 minutes
-
-
 
 // RR variables:
 int RR_count = 0;
@@ -73,6 +71,7 @@ float Core_body_temp = 0;
 bool time_flag = false;
 bool recording = false;        //indicate which recording is taking place true = 5's and false =30's
 bool Data_available = false;   //indicate that data is available for processing
+bool Startup = true;           //on start up
 
 void setup() 
 {
@@ -152,7 +151,7 @@ void loop()
   }
   //Every 10 seconds record 5's of HR and Sp02:
   int time_10s_micro = micros();
-  if (time_10s_micro - time_10s >= 10000000 && Current_balaning == false)
+  if (time_10s_micro - time_10s >= 10000000 && Current_balaning == false && Startup == false)
   {
     recording = true;       // data recording 5's is taking place 
   	time_10s = micros();		// redefine time
@@ -222,18 +221,17 @@ void loop()
 
   //Every minute take a temperature reading:
   int time_60s_micro = micros();
-  if (time_60s_micro - time_60s >= 60000000 && Current_balaning == false)
+  if (time_60s_micro - time_60s >= 60000000 && Current_balaning == false || Startup == true)
   {
   	time_60s = micros();		// redefine time
   	//insert code below:
   	//Serial.println("60 seconds");		// test print
-  	Core_body_temp = temp_sensor.getObjectTemp();			// Get core body temperature
-    
+  	Core_body_temp = temp_sensor.getObjectTemp();			// Get core body temperature   
   }
 
   // //Every 5 minutes record 30's of HR and Sp02 for RR and B2B:
   int time_300s_micro = micros();
-  if (time_300s_micro - time_300s >= 300000000 && Current_balaning == false)
+  if (time_300s_micro - time_300s >= 300000000 && Current_balaning == false || Startup == true)
   {
     recording = false;       // data recording 30's is taking place
   	time_300s = micros();		// redefine time
@@ -482,6 +480,7 @@ void loop()
     Serial.println("------------------------------");
 
     Data_available = false;                                     // Data has been processed
+    Startup = false;                                            // Start up has is complete
   }
 }
 
