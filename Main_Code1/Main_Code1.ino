@@ -83,8 +83,17 @@ void setup()
 	temp_sensor.setMode(MODE_SLEEP);		// Put sensor in sleep mode 
 
 	// MAX30100 sensor:
-	MAX30100_sensor.begin();
-	//MAX30100_Startup();		//Start-up the MAX30100 sensor
+	MAX30100_sensor.begin();   // Warm Up:
+  MAX30100_Startup();   //Start-up the MAX30100 sensor
+  int delta_warmup = 0;       // delta time of warm up
+  int start_warmup = micros();    // start time of warm up (1,5 second)
+  while(delta_warmup <= 3000000)    
+  {
+    MAX30100_sensor.update();   // Update sensor
+    delta_warmup = micros() - start_warmup;   // delta time of warm up
+  }
+  MAX30100_sensor.shutdown();       // Shutdown MAX30100 sensor 
+	
 }
 
 void loop() 
@@ -95,8 +104,10 @@ void loop()
   // Recording varibles:
   float IR_DC_val = 0;               // DC value of the IR signal
   float RED_DC_val = 0;              // DC value of the RED signal
-  float Sum_AC_IR = 0;               //Sum of the IR AC signal value
-  float Sum_AC_RED = 0;              //Sum of the RED AC signal value
+  float IR_DC_val_SpO2 = 0;          // DC value of the IR signal for SpO2 calculation
+  float RED_DC_val_SpO2 = 0;         // DC value of the RED signal for SpO2 calculation
+  float Sum_AC_IR = 0;               // Sum of the IR AC signal value
+  float Sum_AC_RED = 0;              // Sum of the RED AC signal value
   // Current balancing for Sp02 calculation:
   // This balancing is going to take place every 5 minutes:
   if (Current_balaning == true)
@@ -182,24 +193,41 @@ void loop()
   		  // IR Signal:
   			IR_DC = false;
   			IR_AC_array[i] = DCR_function_IR(raw_IR_Val, ALPHA_DCR, IR_DC);     	  //filter raw IR LED data through DC removal
-  			//Calculating AC RMS value:
-  			Sum_AC_IR += pow((IR_AC_array[i]),2);                                   //Sum of the IR AC signal value
-  			//Add filtering to raw values:
+  			//Calculating AC RMS value: (only after 50 iterations - remove noise)
+        if (i > 100 && i <= 500)
+        {
+          Sum_AC_IR += pow((IR_AC_array[i]),2);                                   //Sum of the IR AC signal value
+        }
+        //Add filtering to raw values:
   			IR_AC_array[i] = MDF_function(IR_AC_array[i]);                         	//mean difference filter IR LED data 
   			IR_AC_array[i] = Butterworth_LPF_function(IR_AC_array[i]);             	//low pass butterworth filter IR LED data
         //Get DC value from signal:
   			IR_DC = true;
   			IR_DC_val = DCR_function_IR(raw_IR_Val, ALPHA_DCR, IR_DC);       	//Get DC value from IR signal
-
+        if (i == 500)
+        {
+          IR_DC_val_SpO2 = IR_DC_val;
+        }
+        // Test Print:
+        //Serial.print(IR_DC_val);
+        //Serial.print(" , ");
   			// RED Signal:
   			RED_DC = false;
   			float RED_AC_value = DCR_function_RED(raw_RED_Val, ALPHA_DCR, RED_DC);  //filter raw RED LED data through DC removal
-  			//Calculating AC RMS value:
-  			Sum_AC_RED += pow((RED_AC_value),2);                                   	//Sum of the RED AC signal value
-  			//Get DC value from signal
+  			//Calculating AC RMS value: (only after 50 iterations - remove noise)
+  			if (i > 100 && i <= 500)
+        {
+          Sum_AC_RED += pow((RED_AC_value),2);                                   	//Sum of the RED AC signal value
+  			}
+        //Get DC value from signal
   			RED_DC = true;
   			RED_DC_val = DCR_function_RED(raw_RED_Val, ALPHA_DCR, RED_DC);    //Get DC value from RED signal
-
+        if (i == 500)
+        {
+          RED_DC_val_SpO2 = RED_DC_val;
+        }
+        // Test Print:
+        //Serial.println(RED_DC_val);
         i++;
         if (i >= 550)
         {
@@ -262,24 +290,41 @@ void loop()
         // IR Signal:
         IR_DC = false;
         IR_AC_array[i] = DCR_function_IR(raw_IR_Val, ALPHA_DCR, IR_DC);         //filter raw IR LED data through DC removal
-        //Calculating AC RMS value:
-        Sum_AC_IR += pow((IR_AC_array[i]),2);                                   //Sum of the IR AC signal value
+        //Calculating AC RMS value: (only after 50 iterations - remove noise)
+        if (i > 100 && i <= 500)
+        {
+          Sum_AC_IR += pow((IR_AC_array[i]),2);                                   //Sum of the IR AC signal value
+        }
         //Add filtering to raw values:
         IR_AC_array[i] = MDF_function(IR_AC_array[i]);                          //mean difference filter IR LED data 
         IR_AC_array[i] = Butterworth_LPF_function(IR_AC_array[i]);              //low pass butterworth filter IR LED data
         //Get DC value from signal:
         IR_DC = true;
         IR_DC_val = DCR_function_IR(raw_IR_Val, ALPHA_DCR, IR_DC);        //Get DC value from IR signal
-
+        if (i == 500)
+        {
+          IR_DC_val_SpO2 = IR_DC_val;
+        }
+        // Test Print:
+        //Serial.print(IR_DC_val);
+        //Serial.print(" , ");
         // RED Signal:
         RED_DC = false;
         float RED_AC_value = DCR_function_RED(raw_RED_Val, ALPHA_DCR, RED_DC);  //filter raw RED LED data through DC removal
-        //Calculating AC RMS value:
-        Sum_AC_RED += pow((RED_AC_value),2);                                    //Sum of the RED AC signal value
+        //Calculating AC RMS value: (only after 50 iterations - remove noise)
+        if (i > 100 && i <= 500)
+        {
+          Sum_AC_RED += pow((RED_AC_value),2);                                    //Sum of the RED AC signal value
+        }
         //Get DC value from signal
         RED_DC = true;
         RED_DC_val = DCR_function_RED(raw_RED_Val, ALPHA_DCR, RED_DC);    //Get DC value from RED signal
-        
+        if (i == 500)
+        {
+          RED_DC_val_SpO2 = RED_DC_val;
+        }
+        // Test Print:
+        //Serial.println(RED_DC_val);
         i++;
         if (i >= 3050)
         {
@@ -404,12 +449,14 @@ void loop()
     int threshold = 0.65*(Sum_beat_array/expected_peaks);  //threshold value for beat detection
 
     // Test print: 
-    // for(int i = 0; i < size; i++)
+    // for(int i = 50; i < size; i++)
     // {
     //   Serial.print(SSF_output[i]);
     //   Serial.print(",");
     //   Serial.println(threshold);
     // } 
+    // Serial.println("------------------------------");
+
 
     // Counting the peaks to calculate BPM and RR:
     int Peak_count = 0;                   // Counter to count the number of peaks
@@ -472,9 +519,9 @@ void loop()
     Serial.println(BPM);
 
     //SpO2 calculation:
-    float RMS_AC_IR = sqrt(Sum_AC_IR/size);                     //RMS of the IR AC signal
-    float RMS_AC_RED = sqrt(Sum_AC_RED/size);                   //RMS of the RED AC signal
-    float R = (RMS_AC_RED/RED_DC_val)/(RMS_AC_IR/IR_DC_val);    //R value used to calculate Sp02
+    float RMS_AC_IR = sqrt(Sum_AC_IR/400);                     //RMS of the IR AC signal
+    float RMS_AC_RED = sqrt(Sum_AC_RED/400);                   //RMS of the RED AC signal
+    float R = (RMS_AC_RED/RED_DC_val_SpO2)/(RMS_AC_IR/IR_DC_val_SpO2);    //R value used to calculate Sp02
     float SpO2 = 110 - 25*R;                                    //Sp02 value
     // Test print:
     Serial.print("SpO2:                   ");
@@ -595,9 +642,9 @@ float Butterworth_LPF_function(float raw_input)
   //Fs = 100Hz (sample rate) and Fc = 10Hz (cut-off frequency)
   //Val[2] = (6.745527388907189559e-2 * raw_input) + (-0.41280159809618854894 * Val[0]) + (1.14298050253990091107 * Val[1]);
   //Fs = 100Hz (sample rate) and Fc = 5Hz (cut-off frequency)
-  Val[2] = (2.008336556421122521e-2 * raw_input) + (-0.64135153805756306422 * Val[0]) + (1.56101807580071816339 * Val[1]);
+  //Val[2] = (2.008336556421122521e-2 * raw_input) + (-0.64135153805756306422 * Val[0]) + (1.56101807580071816339 * Val[1]);
   //Fs = 100Hz (sample rate) and Fc = 3Hz (cut-off frequency)
-  //Val[2] = (7.820208033497201908e-3 * raw_input) + (-0.76600660094326400440 * Val[0]) + (1.73472576880927520371 * Val[1]);
+  Val[2] = (7.820208033497201908e-3 * raw_input) + (-0.76600660094326400440 * Val[0]) + (1.73472576880927520371 * Val[1]);
   float BWF_output = (Val[0] + Val[2]) + 2*Val[1];
   //Serial.println(BWF_output);  
   return BWF_output;
