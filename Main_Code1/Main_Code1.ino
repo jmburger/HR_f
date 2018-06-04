@@ -363,7 +363,7 @@ void loop()
       size = 3050;
     }
     // Slope Sum Function (SSF):
-    int window = 6;         //length of analyzing window
+    int window = 5;         //length of analyzing window
     int j = 0;               //new counter
     float SSF = 0;           //summation in window period
     for (int i = 50; i < size; i++)
@@ -413,7 +413,7 @@ void loop()
     for (int i = 0; i < size; i++)
     {
       // Test print:
-      //Serial.println(SSF_output[i]);
+      Serial.println(SSF_output[i]);
       if(SSF_output[i-1] < SSF_output[i] && SSF_output[i] > SSF_output[i+1])
       { 
         Peak = SSF_output[i];
@@ -456,6 +456,8 @@ void loop()
     //   Serial.println(threshold);
     // } 
     // Serial.println("------------------------------");
+    Serial.print("Threshold:              ");
+    Serial.println(threshold);
 
 
     // Counting the peaks to calculate BPM and RR:
@@ -493,6 +495,7 @@ void loop()
       // Test print:
       //Serial.println("----------");
       //Serial.println(Delta_p2p_time[0]);
+      RR_count = 0;
       for ( int i = 1; i < Peak_count-2; i++)
       {
         // Test print:
