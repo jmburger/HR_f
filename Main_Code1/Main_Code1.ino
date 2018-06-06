@@ -413,7 +413,7 @@ void loop()
     for (int i = 0; i < size; i++)
     {
       // Test print:
-      Serial.println(SSF_output[i]);
+      //Serial.println(SSF_output[i]);
       if(SSF_output[i-1] < SSF_output[i] && SSF_output[i] > SSF_output[i+1])
       { 
         Peak = SSF_output[i];
@@ -456,8 +456,8 @@ void loop()
     //   Serial.println(threshold);
     // } 
     // Serial.println("------------------------------");
-    Serial.print("Threshold:              ");
-    Serial.println(threshold);
+    //Serial.print("Threshold:              ");
+    //Serial.println(threshold);
 
 
     // Counting the peaks to calculate BPM and RR:
