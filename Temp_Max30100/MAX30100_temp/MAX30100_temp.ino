@@ -42,6 +42,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 // Instantiate a MAX30100 sensor class
 MAX30100 sensor;
 
+// timer
+int timer = 0;
+int timer_prev = 0;
+
 void setup()
 {
     Serial.begin(115200);
@@ -69,15 +73,17 @@ void setup()
 
 void loop()
 {
-    uint16_t ir, red;
-    uint8_t temp;
-
+    //uint16_t ir, red;
+    float temp;
+    sensor.startTemperatureSampling();
     //sensor.update();
 
-    if (sensor.isTemperatureReady() == true)
+    timer = micros() - timer_prev;
+    if (sensor.isTemperatureReady() == true && timer >= 2000000)
     {
     	temp = sensor.retrieveTemperature();		//read temperature
     	Serial.println(temp);
+    	timer_prev = micros();
     }
 
     //while (sensor.getRawValues(&ir, &red)) 
