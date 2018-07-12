@@ -7,4 +7,5 @@ void loop()
 {
   //Print to bluetooth serial monitor
 	Serial1.println("hi Jarryd");
+	delay(5000);
 }
