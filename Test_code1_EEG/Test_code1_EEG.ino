@@ -11,12 +11,11 @@ uint8_t meditation = 0;
 void setup() {
     // Start the bluetooth serial.
     Serial1.begin(57600);
-    Serial.begin(57600);
+    //Serial.begin(57600);
 }
 
 void loop() {
-    // Expect packets about once per second.
-    // The .readCSV() function returns a string (well, char*) listing the most recent brain data, in the following format:
+    // Expect packets about once per second:
     // "signal strength, attention, meditation, delta, theta, low alpha, high alpha, low beta, high beta, low gamma, high gamma"
     brain.update();
     if (Brain_prev != brain.readDelta() && brain.readDelta() != 0) 
@@ -26,13 +25,14 @@ void loop() {
         signal_strength = brain.readSignalQuality();         // 0 good signal , 200 poor signal
         attention = brain.readAttention();           
         meditation = brain.readMeditation();
-        //Test print bluetooth serial:
-        Serial1.print(signal_strength);
-        Serial1.print(",");
-        Serial1.print(attention);
-        Serial1.print(",");
-        Serial1.println(meditation);
-
+        
     }
+    //delay(1000);
+    //Test print bluetooth serial:
+    //Serial1.print(signal_strength);
+    //Serial1.print(",");
+    //Serial1.print(attention);
+    //Serial1.print(",");
+    //Serial1.println(meditation);
     
 }
