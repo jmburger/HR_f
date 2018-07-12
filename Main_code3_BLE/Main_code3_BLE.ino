@@ -71,7 +71,7 @@ bool Startup = true;           //on start up
 
 void setup() 
 {
-	Serial.begin(115200);
+	Serial1.begin(9600);
 
   // MAX30100 sensor:
   MAX30100_sensor.begin();   // Warm Up:
@@ -143,9 +143,9 @@ void loop()
     			MAX30100_sensor.setLedsCurrent(IR_current, RED_current);   	          //Set led's current IR and Red respectively
     		}
     		// Test print: 
-  			//Serial.print(RED_DC_val); 
-  			//Serial.print(" , ");
-  			//Serial.println(IR_DC_val);
+  			//Serial1.print(RED_DC_val); 
+  			//Serial1.print(" , ");
+  			//Serial1.println(IR_DC_val);
   		}
   	}
   	Current_balaning = false;			// Current balancing complete
@@ -167,7 +167,7 @@ void loop()
       MAX30100_sensor.update();   // Update sensor
   		delta_warmup = micros() - start_warmup;		// delta time of warm up
   	}
-  	//Serial.println("10 seconds");	  // test print
+  	//Serial1.println("10 seconds");	  // test print
     // 5 seconds recording required varabiles
   	int i = 0;                        //Counter
   	Sum_AC_IR = 0;				            //Sum of the IR AC signal value
@@ -200,8 +200,8 @@ void loop()
           IR_DC_val_SpO2 = IR_DC_val;
         }
         // Test Print:
-        //Serial.print(IR_DC_val);
-        //Serial.print(" , ");
+        //Serial1.print(IR_DC_val);
+        //Serial1.print(" , ");
   			// RED Signal:
   			RED_DC = false;
   			float RED_AC_value = DCR_function_RED(raw_RED_Val, ALPHA_DCR, RED_DC);  //filter raw RED LED data through DC removal
@@ -218,22 +218,22 @@ void loop()
           RED_DC_val_SpO2 = RED_DC_val;
         }
         // Test Print:
-        //Serial.println(RED_DC_val);
+        //Serial1.println(RED_DC_val);
         i++;
         if (i >= 550)
         {
           break;
         }
   		// Test Print:
-  		//Serial.println(IR_AC_array[i]);
-        //Serial.println(SSF_output[i]);
-        //Serial.println(i);
+  		//Serial1.println(IR_AC_array[i]);
+        //Serial1.println(SSF_output[i]);
+        //Serial1.println(i);
   		}
       delta_rec_5s = micros() - start_rec_5s;         // delta time calculation 5 seconds
   	}
     // Test print
-    //Serial.println(i);
-  	//Serial.println("exit while loop 5s");	// test print
+    //Serial1.println(i);
+  	//Serial1.println("exit while loop 5s");	// test print
   	MAX30100_sensor.shutdown();				// Shutdown MAX30100 sensor	
     Data_available = true;            // Data needs processing
   }
@@ -244,13 +244,13 @@ void loop()
   {
   	if (!MAX30100_sensor.begin()) 
     {
-	  Serial.println("FAILED");
+	  Serial1.println("FAILED");
 	  for(;;);
     } 
     MAX30100_sensor.startTemperatureSampling();
   	time_60s = micros();		// redefine time
   	//insert code below:
-  	//Serial.println("60 seconds");		// test print
+  	//Serial1.println("60 seconds");		// test print
   	if (MAX30100_sensor.isTemperatureReady() == true)
     {
   	  Core_body_temp = MAX30100_sensor.retrieveTemperature();			// Get core body temperature
@@ -273,7 +273,7 @@ void loop()
       MAX30100_sensor.update();   // Update sensor
       delta_warmup = micros() - start_warmup;   // delta time of warm up
     }
-  	//Serial.println("5 minute");	// test print
+  	//Serial1.println("5 minute");	// test print
     // 30 seconds recording required varabiles
     int i = 0;                  //Counter
     Sum_AC_IR = 0;              //Sum of the IR AC signal value
@@ -306,8 +306,8 @@ void loop()
           IR_DC_val_SpO2 = IR_DC_val;
         }
         // Test Print:
-        //Serial.print(IR_DC_val);
-        //Serial.print(" , ");
+        //Serial1.print(IR_DC_val);
+        //Serial1.print(" , ");
         // RED Signal:
         RED_DC = false;
         float RED_AC_value = DCR_function_RED(raw_RED_Val, ALPHA_DCR, RED_DC);  //filter raw RED LED data through DC removal
@@ -324,22 +324,22 @@ void loop()
           RED_DC_val_SpO2 = RED_DC_val;
         }
         // Test Print:
-        //Serial.println(RED_DC_val);
+        //Serial1.println(RED_DC_val);
         i++;
         if (i >= 3050)
         {
           break;
         }
         // Test Print:
-        //Serial.println(IR_AC_array[i]);
-        //Serial.println(SSF_output[i]);
-        //Serial.println(i);
+        //Serial1.println(IR_AC_array[i]);
+        //Serial1.println(SSF_output[i]);
+        //Serial1.println(i);
       }
       delta_rec_30s = micros() - start_rec_30s;				// delta time calculation 30 seconds 
   	}
     // Test print:
-    //Serial.println(i);
-  	//Serial.println("exit while loop 30s");	// test print
+    //Serial1.println(i);
+  	//Serial1.println("exit while loop 30s");	// test print
     MAX30100_sensor.shutdown();       // Shutdown MAX30100 sensor 
     // Initial startup does  not require to do current balancing again:
     if (Startup == true)
@@ -387,7 +387,7 @@ void loop()
       } 
       j++;
       //Test print:
-      //Serial.println(SSF_output[j]);
+      //Serial1.println(SSF_output[j]);
     }
 
     // Peak Detection:
@@ -400,7 +400,7 @@ void loop()
     if (recording == false)
     {
       //Test print:
-      //Serial.println("Hi");
+      //Serial1.println("Hi");
       factor_ = 0.95;                     // Better the BPM accuracy
       size = 3000;
       FT = 2;                             // Time multiply factor 30 seconds to 60 seconds
@@ -413,7 +413,7 @@ void loop()
     for (int i = 0; i < size; i++)
     {
       // Test print:
-      //Serial.println(SSF_output[i]);
+      //Serial1.println(SSF_output[i]);
       if(SSF_output[i-1] < SSF_output[i] && SSF_output[i] > SSF_output[i+1])
       { 
         Peak = SSF_output[i];
@@ -433,10 +433,10 @@ void loop()
       } 
     }
     // Test result of beat array_:
-    // Serial.println("-----------");
+    // Serial1.println("-----------");
     // for(int x = 0; x < expected_peaks; x++)
     // {
-    //  Serial.println(Beat_array[x]);
+    //  Serial1.println(Beat_array[x]);
     // } 
 
     //Processing Period:
@@ -451,13 +451,13 @@ void loop()
     // Test print: 
     // for(int i = 50; i < size; i++)
     // {
-    //   Serial.print(SSF_output[i]);
-    //   Serial.print(",");
-    //   Serial.println(threshold);
+    //   Serial1.print(SSF_output[i]);
+    //   Serial1.print(",");
+    //   Serial1.println(threshold);
     // } 
-    // Serial.println("------------------------------");
-    //Serial.print("Threshold:              ");
-    //Serial.println(threshold);
+    // Serial1.println("------------------------------");
+    //Serial1.print("Threshold:              ");
+    //Serial1.println(threshold);
 
 
     // Counting the peaks to calculate BPM and RR:
@@ -477,7 +477,7 @@ void loop()
           {
             Delta_p2p_time[Peak_count-2] = micros() - P2p_time_start;    //delta time between peak to peak
             // Test print:
-            //Serial.println(Delta_p2p_time[Peak_count-2]);
+            //Serial1.println(Delta_p2p_time[Peak_count-2]);
             Sum_of_p2p_times += Delta_p2p_time[Peak_count-2];
           }
           P2p_time_start = micros();                        //starting time of peak to peak
@@ -486,40 +486,40 @@ void loop()
     }
     int End_delta = micros() - Start_delta;                 // Delta time of the for loop for the 5 seconds
     // Test print:
-    //Serial.println(Sum_of_p2p_times);
-    //Serial.println(End_delta_rec5s);
+    //Serial1.println(Sum_of_p2p_times);
+    //Serial1.println(End_delta_rec5s);
 
     // Calculating respiratory rate (RR):
     if (recording == false)
     {
       // Test print:
-      //Serial.println("----------");
-      //Serial.println(Delta_p2p_time[0]);
+      //Serial1.println("----------");
+      //Serial1.println(Delta_p2p_time[0]);
       RR_count = 0;
       for ( int i = 1; i < Peak_count-2; i++)
       {
         // Test print:
-        //Serial.println(Delta_p2p_time[i]);
+        //Serial1.println(Delta_p2p_time[i]);
         if(Delta_p2p_time[i-1] < Delta_p2p_time[i] && Delta_p2p_time[i] > Delta_p2p_time[i+1])
         {
           RR_count++;                                       // count breaths
           // Test print:
-          //Serial.println("-----");
+          //Serial1.println("-----");
         }
       }
     }
 
     // Test print:
-    Serial.print("Core Body Temperature:  "); 
-    Serial.println(Core_body_temp);               // print core body temperature ever 1 minute.
+    Serial1.print("Core Body Temperature:  "); 
+    Serial1.println(Core_body_temp);               // print core body temperature ever 1 minute.
 
     //BPM calculation:
     int Total_60s = End_delta*FT;                           // Taking the 5 seconds/ 30 seconds to 60 seconds
     int Avg_p2p_time = Sum_of_p2p_times/Peak_count;         // Average peak to peak time in 5 second recording 
     int BPM = int(Total_60s/(Avg_p2p_time)*factor_);        // Calculating the beats per minute
     // Test print:
-    Serial.print("BPM:                    ");
-    Serial.println(BPM);
+    Serial1.print("BPM:                    ");
+    Serial1.println(BPM);
 
     //SpO2 calculation:
     float RMS_AC_IR = sqrt(Sum_AC_IR/400);                     //RMS of the IR AC signal
@@ -527,15 +527,15 @@ void loop()
     float R = (RMS_AC_RED/RED_DC_val_SpO2)/(RMS_AC_IR/IR_DC_val_SpO2);    //R value used to calculate Sp02
     float SpO2 = 110 - 25*R;                                    //Sp02 value
     // Test print:
-    Serial.print("SpO2:                   ");
-    Serial.println(SpO2);
+    Serial1.print("SpO2:                   ");
+    Serial1.println(SpO2);
 
     //RR Calculation:
     int RR = RR_count*2;                                        // RR breaths per minute (count 30's times 2)
     // Test print:
-    Serial.print("RR:                     ");
-    Serial.println(RR);
-    Serial.println("------------------------------");
+    Serial1.print("RR:                     ");
+    Serial1.println(RR);
+    Serial1.println("------------------------------");
 
     Data_available = false;                                     // Data has been processed
     Startup = false;                                            // Start up has is complete
@@ -561,16 +561,16 @@ void loop()
 //-------------------------MAX30100 START UP-----------------------------------------
 void MAX30100_Startup()
 {
-  //Serial.print("Initializing MAX30100..");
+  //Serial1.print("Initializing MAX30100..");
   // Initialize the sensor
   // Failures are generally due to an improper I2C wiring, missing power supply or wrong target chip
   if (!MAX30100_sensor.begin()) {
-    Serial.println("FAILED");
+    Serial1.println("FAILED");
     for (;;);
   } else {
-  //  Serial.println("SUCCESS");
+  //  Serial1.println("SUCCESS");
   }
-  //Serial.println("MAX30100 HR and SpO2 Sensor");
+  //Serial1.println("MAX30100 HR and SpO2 Sensor");
   MAX30100_sensor.setMode(MAX30100_MODE_SPO2_HR);          //setting sensor mode (HR and SpO2)
   MAX30100_sensor.setLedsCurrent(IR_current, RED_current); //Set led's current IR and Red respectively
   MAX30100_sensor.setLedsPulseWidth(Pulse_width);          //Set led's pulse width
@@ -596,7 +596,7 @@ float DCR_function_IR(double raw_input, float alpha, bool ret)
     prev_filtered_IR = filtered;
     output_DCR = AC_val;
   } 
-  //Serial.println(output_DCR); 
+  //Serial1.println(output_DCR); 
   return output_DCR;
 }
 //DC Removeral filter for Sp02
@@ -616,7 +616,7 @@ float DCR_function_RED(double raw_input, float alpha, bool ret)
     prev_filtered_RED = filtered; 
     output_DCR = AC_val;
   }
-  //Serial.println(output_DCR); 
+  //Serial1.println(output_DCR); 
   return output_DCR;
 }
 // Mean difference filter
@@ -633,7 +633,7 @@ float MDF_function(float raw_input)
     count++;
   }
   avg = sum / count;
-  //Serial.println(avg);
+  //Serial1.println(avg);
   return avg - raw_input;
 }
 //Low pass filter (Butterworth filter)
@@ -649,7 +649,7 @@ float Butterworth_LPF_function(float raw_input)
   //Fs = 100Hz (sample rate) and Fc = 3Hz (cut-off frequency)
   Val[2] = (7.820208033497201908e-3 * raw_input) + (-0.76600660094326400440 * Val[0]) + (1.73472576880927520371 * Val[1]);
   float BWF_output = (Val[0] + Val[2]) + 2*Val[1];
-  //Serial.println(BWF_output);  
+  //Serial1.println(BWF_output);  
   return BWF_output;
 }
 //----------------------------------------------------------------------------------
