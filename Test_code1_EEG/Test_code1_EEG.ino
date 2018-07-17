@@ -27,12 +27,12 @@ void loop() {
         meditation = brain.readMeditation();
         
     }
-    //delay(1000);
+    delay(1000);
     //Test print bluetooth serial:
-    //Serial1.print(signal_strength);
-    //Serial1.print(",");
-    //Serial1.print(attention);
-    //Serial1.print(",");
-    //Serial1.println(meditation);
+    Serial1.print(signal_strength);
+    Serial1.print(",");
+    Serial1.print(attention);
+    Serial1.print(",");
+    Serial1.println(meditation);
     
 }

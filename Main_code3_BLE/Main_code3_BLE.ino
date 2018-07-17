@@ -71,7 +71,7 @@ bool Startup = true;           //on start up
 
 void setup() 
 {
-	Serial1.begin(9600);
+	Serial1.begin(57600);
 
   // MAX30100 sensor:
   MAX30100_sensor.begin();   // Warm Up:
