@@ -4,6 +4,16 @@
 #include <stdint.h>
 #include <stdio.h>
 
+//EEG Sensor 
+#include <Brain.h>
+// Set up the brain reader, pass it the software serial object you want to listen on.
+Brain brain(Serial1);
+// Brain variables:
+int Brain_prev = 0;
+uint8_t signal_strength = 0;    
+uint8_t attention = 0;
+uint8_t meditation = 0;
+
 // MAX30100 sensor
 #include <MAX30100.h>
 MAX30100 MAX30100_sensor;
@@ -48,6 +58,8 @@ uint8_t count = 0;
 float sum = 0;
 //Low pass filter (butterworth filter) variables:
 float Val[3];
+int BPM = 0;
+float SpO2 = 0;
 
 //Current balancing:
 #define ACCEPTABLE_CURRENT_DIFF   2500  // Acceptable current difference between RED current and IR current
@@ -62,16 +74,19 @@ int time_300s = micros();		// time 5 minutes
 // RR variables:
 int RR_count = 0;
 float Core_body_temp = 0;
+int RR = 0;
 
 // Flags for timer:
 bool time_flag = false;
 bool recording = false;        //indicate which recording is taking place true = 5's and false =30's
 bool Data_available = false;   //indicate that data is available for processing
 bool Startup = true;           //on start up
+bool Start_warm = false;       //start up warmup flag
 
 void setup() 
 {
-	Serial1.begin(115200);
+	Serial1.begin(57600);
+  Serial.begin(115200);
 
   // MAX30100 sensor:
   MAX30100_sensor.begin();   // Warm Up:
@@ -89,6 +104,13 @@ void setup()
 
 void loop() 
 {
+  if (Start_warm == false){
+    Serial1.println("Warming Up.....");
+    Serial1.println("----------------------");
+    Serial1.println("");
+    Start_warm = true;
+  }
+  
   // Varabiles:
   float IR_AC_array[3050];           // IR signal AC array_.
   float SSF_output[3050];            //SSF output array_.
@@ -510,48 +532,141 @@ void loop()
     }
 
     // Test print:
-    Serial1.print("Core Body Temperature:  "); 
-    Serial1.println(Core_body_temp);               // print core body temperature ever 1 minute.
+    //Serial1.print("Core Body Temperature:  "); 
+    //Serial1.println(Core_body_temp);               // print core body temperature ever 1 minute.
 
     //BPM calculation:
     int Total_60s = End_delta*FT;                           // Taking the 5 seconds/ 30 seconds to 60 seconds
     int Avg_p2p_time = Sum_of_p2p_times/Peak_count;         // Average peak to peak time in 5 second recording 
-    int BPM = int(Total_60s/(Avg_p2p_time)*factor_);        // Calculating the beats per minute
+    BPM = int(Total_60s/(Avg_p2p_time)*factor_);        // Calculating the beats per minute
     // Test print:
-    Serial1.print("BPM:                    ");
-    Serial1.println(BPM);
+    //Serial1.print("BPM:                    ");
+    //Serial1.println(BPM);
 
     //SpO2 calculation:
     float RMS_AC_IR = sqrt(Sum_AC_IR/400);                     //RMS of the IR AC signal
     float RMS_AC_RED = sqrt(Sum_AC_RED/400);                   //RMS of the RED AC signal
     float R = (RMS_AC_RED/RED_DC_val_SpO2)/(RMS_AC_IR/IR_DC_val_SpO2);    //R value used to calculate Sp02
-    float SpO2 = 110 - 25*R;                                    //Sp02 value
+    SpO2 = 110 - 25*R;                                    //Sp02 value
     // Test print:
-    Serial1.print("SpO2:                   ");
-    Serial1.println(SpO2);
+    //Serial1.print("SpO2:                   ");
+    //Serial1.println(SpO2);
 
     //RR Calculation:
-    int RR = RR_count*2;                                        // RR breaths per minute (count 30's times 2)
+    RR = RR_count*2;                                        // RR breaths per minute (count 30's times 2)
     // Test print:
-    Serial1.print("RR:                     ");
-    Serial1.println(RR);
-    Serial1.println("------------------------------");
+    //Serial1.print("RR:                     ");
+    //Serial1.println(RR);
 
     Data_available = false;                                     // Data has been processed
     Startup = false;                                            // Start up has is complete
+
+    //Test print bluetooth serial:
+    delay(20);
+    Serial1.print("Core Body Temperature:  "); 
+    Serial1.println(Core_body_temp);               // print core body temperature ever 1 minute.
+    delay(20);
+    Serial1.print("BPM:                     ");
+    Serial1.println(BPM);
+    delay(20);
+    Serial1.print("SpO2:                   ");
+    Serial1.println(SpO2);
+    delay(20);
+    Serial1.print("RR:                        ");
+    Serial1.println(RR);
+    Serial1.println("EEG Data: ");
+    delay(20);
+    Serial1.println("(Signal Strength, attention, meditation)");
+    Serial1.print(signal_strength);
+    Serial1.print(",");
+    Serial1.print(attention);
+    Serial1.print(",");
+    Serial1.println(meditation);
+    Serial1.println("----------------------");
+    Serial1.println("");
+    delay(500);
+
   }
+  
+  // Expect packets about once per second (for EEG):
+  // "signal strength, attention, meditation, delta, theta, low alpha, high alpha, low beta, high beta, low gamma, high gamma"
+  brain.update();
+  if (Brain_prev != brain.readDelta() && brain.readDelta() != 0) 
+  {
+    // Signal strength:
+    Brain_prev = brain.readDelta();
+    signal_strength = brain.readSignalQuality();         // 0 good signal , 200 poor signal
+    attention = brain.readAttention();           
+    meditation = brain.readMeditation(); 
+  }
+
+  //Calculating vital signs combinations:
+  //Heart Rate:
+  int HR_VS = 0;
+  if (BPM < 40)
+  {
+    HR_VS = 1;    //Low heart rate 
+  }
+  if (BPM > 40 && BPM < 100)
+  {
+    HR_VS = 2;    //Normal heart rate
+  }
+  if  (BPM > 100)
+  {
+    HR_VS = 3;    //High heart rate
+  }
+
+  //Heart Rate Variability:
+
+  //Respiratory Rate:
+  int RR_VS = 0;
+  if (RR < 12)
+  {
+    RR_VS = 1;    //Low respiratory rate 
+  }
+  if (RR > 12 && RR < 20)
+  {
+    RR_VS = 2;    //Normal respiratory rate
+  }
+  if  (RR > 20)
+  {
+    RR_VS = 3;    //High respiratory rate
+  }
+
+  //SpO2:
+  int SpO2_VS = 0;
+  if (SpO2 < 90)
+  {
+    SpO2_VS = 1;    //Low SpO2
+  }
+  if (SpO2 > 90 && SpO2 < 100)
+  {
+    SpO2_VS = 2;    //Normal SpO2
+  }
+  if  (SpO2 > 100)
+  {
+    SpO2_VS = 3;    //SpO2 ERROR
+    Serial1.println("Error with SpO2!!");
+  }
+
+  //Temperature: 
+  int Tb_VS = 0;
+  if (Core_body_temp < 35)
+  {
+    Tb_VS = 1;    //Low core body temperature
+  }
+  if (Core_body_temp > 35 && Core_body_temp < 39)
+  {
+    Tb_VS = 2;    //Normal core body temperature
+  }
+  if  (Core_body_temp > 39)
+  {
+    Tb_VS = 3;    //High core body temperature
+  }
+
+
+
 }
-
-
-
-
-
-
-
-
-
-
-
 
 
 
