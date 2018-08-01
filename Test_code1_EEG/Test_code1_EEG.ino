@@ -17,7 +17,7 @@ void setup() {
     Serial1.begin(57600);
 
     // Start the serial port
-    Serial.begin(57600);
+    //Serial.begin(57600);
     
 }
 
