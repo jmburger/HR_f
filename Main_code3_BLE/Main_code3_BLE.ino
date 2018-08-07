@@ -73,8 +73,17 @@ int time_300s = micros();		// time 5 minutes
 
 // RR variables:
 int RR_count = 0;
-float Core_body_temp = 0;
 int RR = 0;
+
+// Temperature sensor (thermistor)
+#define THERMISTORPIN A0            // which analog pin to connect
+#define THERMISTORNOMINAL 100000    // resistance at 25 degrees C 
+#define TEMPERATURENOMINAL 25       // temp. for nominal resistance (almost always 25 C)
+#define NUMSAMPLES 50               // how many samples to take and average, more takes longer but is more 'smooth'
+#define BCOEFFICIENT 4036           // The beta coefficient of the thermistor (usually 3000-4000)
+#define SERIESRESISTOR 100000       // the value of the 'other' resistor
+uint16_t samples[NUMSAMPLES];       // Temperature variables
+float Core_body_temp = 0;
 
 // Flags for timer:
 bool time_flag = false;
@@ -264,19 +273,45 @@ void loop()
   int time_60s_micro = micros();
   if (time_60s_micro - time_60s >= 60000000 && Current_balaning == false || Startup == true)
   {
-  	if (!MAX30100_sensor.begin()) 
-    {
-	  Serial1.println("FAILED");
-	  for(;;);
-    } 
-    MAX30100_sensor.startTemperatureSampling();
-  	time_60s = micros();		// redefine time
-  	//insert code below:
-  	//Serial1.println("60 seconds");		// test print
-  	if (MAX30100_sensor.isTemperatureReady() == true)
-    {
-  	  Core_body_temp = MAX30100_sensor.retrieveTemperature();			// Get core body temperature
-  	}   
+    uint8_t i;
+    float average;
+ 
+    // take N samples in a row, with a slight delay
+    for (i=0; i< NUMSAMPLES; i++) {
+     samples[i] = analogRead(THERMISTORPIN);
+     delay(10);
+     //Serial.println(samples[i]);    //test print
+    }
+    
+    // average all the samples out
+    average = 0;
+    for (i=0; i< NUMSAMPLES; i++) {
+       average += samples[i];
+    }
+    average /= NUMSAMPLES;
+   
+    //Test print:
+    //Serial1.print("Average analog reading "); 
+    //Serial1.println(average);
+   
+    // convert the value to resistance
+    average = 1023 / average - 1;
+    average = SERIESRESISTOR / average;
+    //Test print:
+    //Serial1.print("Thermistor resistance "); 
+    //Serial1.println(average);
+   
+    Core_body_temp = average / THERMISTORNOMINAL;     // (R/Ro)
+    Core_body_temp = log(Core_body_temp);                  // ln(R/Ro)
+    Core_body_temp /= BCOEFFICIENT;                   // 1/B * ln(R/Ro)
+    Core_body_temp += 1.0 / (TEMPERATURENOMINAL + 273.15); // + (1/To)
+    Core_body_temp = 1.0 / Core_body_temp;                 // Invert
+    Core_body_temp -= 273.15;                         // convert to C 
+   
+    //Test print:
+    //Serial1.print("Temperature "); 
+    //Serial1.print(Core_body_temp);
+    //Serial1.println(" *C");
   }
 
   // //Every 5 minutes record 30's of HR and Sp02 for RR and B2B:
@@ -668,7 +703,7 @@ void loop()
 
   //Vital signs combinations:
   // int VS_combinations = 0;
-  // Serial1.println("Condition: ");
+  // Serial1.println("Symptoms of: ");
   // //Combination 1:
   // if (HR_VS == 3 && HRV_VS == 1 && RR_VS == 1 && EEG_VS == * && SpO2_VS == 2 && Tb_VS == 3)
   // {
@@ -717,7 +752,7 @@ void loop()
 
   // if(VS_combinations == 0)
   // {
-  //  Serial1.print("Normal"); 
+  //  Serial1.print("Healthy"); 
   // }
 
 }
