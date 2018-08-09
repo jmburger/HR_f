@@ -75,6 +75,9 @@ int time_300s = micros();		// time 5 minutes
 int RR_count = 0;
 int RR = 0;
 
+// HRV variables
+int HRV_score = 0;
+
 // Temperature sensor (thermistor)
 #define THERMISTORPIN A0            // which analog pin to connect
 #define THERMISTORNOMINAL 100000    // resistance at 25 degrees C 
@@ -314,7 +317,7 @@ void loop()
     //Serial1.println(" *C");
   }
 
-  // //Every 5 minutes record 30's of HR and Sp02 for RR and B2B:
+  // //Every 5 minutes record 30's of HR and Sp02 for RR and HRV:
   int time_300s_micro = micros();
   if (time_300s_micro - time_300s >= 300000000 && Current_balaning == false || Startup == true)
   {
@@ -517,7 +520,7 @@ void loop()
     //Serial1.println(threshold);
 
 
-    // Counting the peaks to calculate BPM and RR:
+    // Counting the peaks to calculate BPM, RR and HRV:
     int Peak_count = 0;                   // Counter to count the number of peaks
     int P2p_time_start = 0;               // Peak to peak start time
     int Start_delta = micros();           // start of the total recording time (5 seconds)
@@ -564,6 +567,25 @@ void loop()
           //Serial1.println("-----");
         }
       }
+
+      // Calculating HRV:
+      float HRV = 0;            // Heart rate variablity score from 0 - 100
+      int sum_of_HRV = 0;     //sum of square peak to peak values for RMSSD calculation 
+      for(int i = 0; i < Peak_count-2; i++) 
+      {
+        // Test print:
+        //Serial.println(Delta_p2p_time[i]);
+        sum_of_HRV += pow((Delta_p2p_time[i] - Delta_p2p_time[i+1]), 2);
+        //Serial.println(sum_of_HRV);
+      }
+      // Test print:
+      //Serial.println(sum_of_HRV);
+      //Serial.println(Peak_count);
+      HRV = sqrt(sum_of_HRV/(Peak_count-1));        // RMSSD calculation to get HRV score
+      float HRV_score_float = log(HRV);             // ln(RMSSD) value between 0-6.5
+      HRV_score = HRV_score_float*15.385;       // ln(RMSSD0 value between 0-100
+      // Test print:
+      //Serial.println(HRV_score);
     }
 
     // Test print:
@@ -604,6 +626,9 @@ void loop()
     Serial1.print("BPM:                     ");
     Serial1.println(BPM);
     delay(20);
+    Serial1.print("HRV:                     ");
+    Serial1.println(HRV_score);
+    delay(20);
     Serial1.print("SpO2:                   ");
     Serial1.println(SpO2);
     delay(20);
@@ -635,69 +660,82 @@ void loop()
     meditation = brain.readMeditation(); 
   }
 
-  // //Calculating vital signs combinations:
-  // //Heart Rate:
-  // int HR_VS = 0;
-  // if (BPM < 40)
-  // {
-  //   HR_VS = 1;    //Low heart rate 
-  // }
-  // if (BPM > 40 && BPM < 100)
-  // {
-  //   HR_VS = 2;    //Normal heart rate
-  // }
-  // if  (BPM > 100)
-  // {
-  //   HR_VS = 3;    //High heart rate
-  // }
+  //Calculating vital signs combinations:
+  //Heart Rate:
+  int HR_VS = 0;
+  if (BPM < 40)
+  {
+    HR_VS = 1;    //Low heart rate 
+  }
+  if (BPM > 40 && BPM <= 100)
+  {
+    HR_VS = 2;    //Normal heart rate
+  }
+  if  (BPM > 100)
+  {
+    HR_VS = 3;    //High heart rate
+  }
 
-  // //Heart Rate Variability:
+  //Heart Rate Variability:
+  int HRV_VS = 0;
+  if (HRV_score < 30)
+  {
+    HRV_VS = 1;    //Low heart rate variability
+  }
+  if (HRV_score > 30 && HRV_score <= 65)
+  {
+    HRV_VS = 2;    //Normal heart rate variability
+  }
+  if  (HRV_score > 65)
+  {
+    HRV_VS = 3;    //High heart rate variability
+  }
 
-  // //Respiratory Rate:
-  // int RR_VS = 0;
-  // if (RR < 12)
-  // {
-  //   RR_VS = 1;    //Low respiratory rate 
-  // }
-  // if (RR > 12 && RR < 20)
-  // {
-  //   RR_VS = 2;    //Normal respiratory rate
-  // }
-  // if  (RR > 20)
-  // {
-  //   RR_VS = 3;    //High respiratory rate
-  // }
+  //Respiratory Rate:
+  int RR_VS = 0;
+  if (RR < 12)
+  {
+    RR_VS = 1;    //Low respiratory rate 
+  }
+  if (RR > 12 && RR <= 20)
+  {
+    RR_VS = 2;    //Normal respiratory rate
+  }
+  if  (RR > 20)
+  {
+    RR_VS = 3;    //High respiratory rate
+  }
 
-  // //SpO2:
-  // int SpO2_VS = 0;
-  // if (SpO2 < 90)
-  // {
-  //   SpO2_VS = 1;    //Low SpO2
-  // }
-  // if (SpO2 > 90 && SpO2 < 100)
-  // {
-  //   SpO2_VS = 2;    //Normal SpO2
-  // }
-  // if  (SpO2 > 100)
-  // {
-  //   SpO2_VS = 3;    //SpO2 ERROR
-  //   Serial1.println("Error with SpO2!!");
-  // }
+  //SpO2:
+  int SpO2_VS = 0;
+  if (SpO2 < 90)
+  {
+    SpO2_VS = 1;    //Low SpO2
+  }
+  if (SpO2 > 90 && SpO2 <= 100)
+  {
+    SpO2_VS = 2;    //Normal SpO2
+  }
+  if  (SpO2 > 100)
+  {
+    SpO2_VS = 3;    //SpO2 ERROR
+    Serial1.println("Error with SpO2!!");
+  }
 
-  // //Temperature: 
-  // int Tb_VS = 0;
-  // if (Core_body_temp < 35)
-  // {
-  //   Tb_VS = 1;    //Low core body temperature
-  // }
-  // if (Core_body_temp > 35 && Core_body_temp < 39)
-  // {
-  //   Tb_VS = 2;    //Normal core body temperature
-  // }
-  // if  (Core_body_temp > 39)
-  // {
-  //   Tb_VS = 3;    //High core body temperature
-  // }
+  //Temperature: 
+  int Tb_VS = 0;
+  if (Core_body_temp < 35)
+  {
+    Tb_VS = 1;    //Low core body temperature
+  }
+  if (Core_body_temp > 35 && Core_body_temp <= 39)
+  {
+    Tb_VS = 2;    //Normal core body temperature
+  }
+  if  (Core_body_temp > 39)
+  {
+    Tb_VS = 3;    //High core body temperature
+  }
 
   //EEG:
 
@@ -707,21 +745,21 @@ void loop()
   // //Combination 1:
   // if (HR_VS == 3 && HRV_VS == 1 && RR_VS == 1 && EEG_VS == * && SpO2_VS == 2 && Tb_VS == 3)
   // {
-  //   //CHECK: EEG, HRV
+  //   //CHECK: EEG
   //   VS_combinations = 1;
   //   Serial1.print("Infection");
   // }
   // //Combination 2:
   // if (HR_VS == 3 && HRV_VS == 2 && RR_VS == 3 && EEG_VS == * && SpO2_VS == 1 && Tb_VS == 3)
   // {
-  //   //CHECK: Temperature: Slightly high, EEG, HRV
+  //   //CHECK: Temperature: Slightly high, EEG
   //   VS_combinations = 2;
   //   Serial1.print("Pneumonia");
   // }
   // //Combination 3:
   // if (HR_VS == 1 && HRV_VS == 3 && RR_VS == 2 && EEG_VS == * && SpO2_VS == 2 && Tb_VS == 2)
   // {
-  //   //CHECK: EEG, HRV
+  //   //CHECK: EEG
   //   VS_combinations = 3;
   //   Serial1.print("Tired, please rest");
   // }
@@ -745,15 +783,15 @@ void loop()
   // //Combination 6:
   // if (HR_VS == 3 && HRV_VS == 2 && RR_VS == 2 && EEG_VS == * && SpO2_VS == 2 && Tb_VS == 2)
   // {
-  //   //CHECK: HRV, EEG
+  //   //CHECK: EEG
   //   VS_combinations = 6;
   //   Serial1.print("Convultion");
   // }
 
-  // if(VS_combinations == 0)
-  // {
-  //  Serial1.print("Healthy"); 
-  // }
+  if(VS_combinations == 0)
+  {
+   Serial1.print("Healthy"); 
+  }
 
 }
 
