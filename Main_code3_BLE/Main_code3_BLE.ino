@@ -117,8 +117,10 @@ void setup()
 void loop() 
 {
   if (Start_warm == false){
+    Serial1.println("VITALTRAC:");
+    Serial1.println("=========");
+    Serial1.println("");
     Serial1.println("Warming Up.....");
-    Serial1.println("----------------------");
     Serial1.println("");
     Start_warm = true;
   }
@@ -620,29 +622,102 @@ void loop()
 
     //Test print bluetooth serial:
     delay(20);
+    Serial1.println("VITALTRAC:");
+    Serial1.println("=========");
+    Serial1.println("");
+    Serial1.println("Vital Data:");
+    Serial1.println("-----------");
     Serial1.print("Core Body Temperature:  "); 
     Serial1.println(Core_body_temp);               // print core body temperature ever 1 minute.
     delay(20);
     Serial1.print("BPM:                     ");
     Serial1.println(BPM);
     delay(20);
-    Serial1.print("HRV:                     ");
+    Serial1.print("HRV:                      ");
     Serial1.println(HRV_score);
     delay(20);
-    Serial1.print("SpO2:                   ");
+    Serial1.print("SpO2:                    ");
     Serial1.println(SpO2);
     delay(20);
-    Serial1.print("RR:                        ");
+    Serial1.print("RR:                         ");
     Serial1.println(RR);
-    Serial1.println("EEG Data: ");
     delay(20);
-    Serial1.println("(Signal Strength, attention, meditation)");
-    Serial1.print(signal_strength);
-    Serial1.print(",");
-    Serial1.print(attention);
-    Serial1.print(",");
+    Serial1.println("");
+    Serial1.println("EEG Data:");
+    Serial1.println("-----------");
+    delay(20);
+    Serial1.print("Signal Strength:   ");
+    Serial1.println(signal_strength);
+    delay(20);
+    Serial1.print("Attention:              ");
+    Serial1.println(attention);
+    delay(20);
+    Serial1.print("Meditation:           ");
     Serial1.println(meditation);
-    Serial1.println("----------------------");
+    delay(20);
+
+    //Vital signs combinations:
+    int VS_combinations = 0;
+    Serial1.println("");
+    Serial1.println("Condition:");
+    Serial1.println("-----------");
+    delay(20);
+    Serial1.print("Symptoms of:   ");
+    // //Combination 1:
+    // if (HR_VS == 3 && HRV_VS == 1 && RR_VS == 1 && EEG_VS == * && SpO2_VS == 2 && Tb_VS == 3)
+    // {
+    //   //CHECK: EEG
+    //   VS_combinations = 1;
+    //   Serial1.print("Infection");
+    // }
+    // //Combination 2:
+    // if (HR_VS == 3 && HRV_VS == 2 && RR_VS == 3 && EEG_VS == * && SpO2_VS == 1 && Tb_VS == 3)
+    // {
+    //   //CHECK: Temperature: Slightly high, EEG
+    //   VS_combinations = 2;
+    //   Serial1.print("Pneumonia");
+    // }
+    // //Combination 3:
+    // if (HR_VS == 1 && HRV_VS == 3 && RR_VS == 2 && EEG_VS == * && SpO2_VS == 2 && Tb_VS == 2)
+    // {
+    //   //CHECK: EEG
+    //   VS_combinations = 3;
+    //   Serial1.print("Tired, please rest");
+    // }
+
+    // //Combination 4:
+    // if (HR_VS == 2 && HRV_VS == 1 && RR_VS == 1 && EEG_VS == * && SpO2_VS == 2 && Tb_VS == 2)
+    // {
+    //   //CHECK: EEG, HRV: slightly low
+    //   VS_combinations = 4;
+    //   Serial1.print("Drugs");
+    // }
+
+    // //Combination 5:
+    // if (HR_VS == 2 && HRV_VS == 1 && RR_VS == 2 && EEG_VS == * && SpO2_VS == 2 && Tb_VS == 2)
+    // {
+    //   //CHECK: HR: slightly high, EEG, HRV: slightly elevated, Sp02: Slightly low/normal
+    //   VS_combinations = 5;
+    //   Serial1.print("Dysrythmia");
+    // }
+
+    // //Combination 6:
+    // if (HR_VS == 3 && HRV_VS == 2 && RR_VS == 2 && EEG_VS == * && SpO2_VS == 2 && Tb_VS == 2)
+    // {
+    //   //CHECK: EEG
+    //   VS_combinations = 6;
+    //   Serial1.print("Convultion");
+    // }
+
+    if(VS_combinations == 0)
+    {
+     Serial1.println("Healthy"); 
+    }
+    //delay(20);
+    Serial1.println("");
+    Serial1.println("");
+    Serial1.println("");
+    Serial1.println("");
     Serial1.println("");
     delay(500);
 
@@ -667,7 +742,7 @@ void loop()
   {
     HR_VS = 1;    //Low heart rate 
   }
-  if (BPM > 40 && BPM <= 100)
+  if (BPM >= 40 && BPM <= 100)
   {
     HR_VS = 2;    //Normal heart rate
   }
@@ -678,11 +753,11 @@ void loop()
 
   //Heart Rate Variability:
   int HRV_VS = 0;
-  if (HRV_score < 30)
+  if (HRV_score < 35)
   {
     HRV_VS = 1;    //Low heart rate variability
   }
-  if (HRV_score > 30 && HRV_score <= 65)
+  if (HRV_score >= 35 && HRV_score <= 65)
   {
     HRV_VS = 2;    //Normal heart rate variability
   }
@@ -697,7 +772,7 @@ void loop()
   {
     RR_VS = 1;    //Low respiratory rate 
   }
-  if (RR > 12 && RR <= 20)
+  if (RR >= 12 && RR <= 20)
   {
     RR_VS = 2;    //Normal respiratory rate
   }
@@ -712,7 +787,7 @@ void loop()
   {
     SpO2_VS = 1;    //Low SpO2
   }
-  if (SpO2 > 90 && SpO2 <= 100)
+  if (SpO2 >= 90 && SpO2 <= 100)
   {
     SpO2_VS = 2;    //Normal SpO2
   }
@@ -724,74 +799,20 @@ void loop()
 
   //Temperature: 
   int Tb_VS = 0;
-  if (Core_body_temp < 35)
+  if (Core_body_temp <= 35)
   {
     Tb_VS = 1;    //Low core body temperature
   }
-  if (Core_body_temp > 35 && Core_body_temp <= 39)
+  if (Core_body_temp > 35 && Core_body_temp < 39)
   {
     Tb_VS = 2;    //Normal core body temperature
   }
-  if  (Core_body_temp > 39)
+  if  (Core_body_temp >= 39)
   {
     Tb_VS = 3;    //High core body temperature
   }
 
   //EEG:
-
-  //Vital signs combinations:
-  // int VS_combinations = 0;
-  // Serial1.println("Symptoms of: ");
-  // //Combination 1:
-  // if (HR_VS == 3 && HRV_VS == 1 && RR_VS == 1 && EEG_VS == * && SpO2_VS == 2 && Tb_VS == 3)
-  // {
-  //   //CHECK: EEG
-  //   VS_combinations = 1;
-  //   Serial1.print("Infection");
-  // }
-  // //Combination 2:
-  // if (HR_VS == 3 && HRV_VS == 2 && RR_VS == 3 && EEG_VS == * && SpO2_VS == 1 && Tb_VS == 3)
-  // {
-  //   //CHECK: Temperature: Slightly high, EEG
-  //   VS_combinations = 2;
-  //   Serial1.print("Pneumonia");
-  // }
-  // //Combination 3:
-  // if (HR_VS == 1 && HRV_VS == 3 && RR_VS == 2 && EEG_VS == * && SpO2_VS == 2 && Tb_VS == 2)
-  // {
-  //   //CHECK: EEG
-  //   VS_combinations = 3;
-  //   Serial1.print("Tired, please rest");
-  // }
-
-  // //Combination 4:
-  // if (HR_VS == 2 && HRV_VS == 1 && RR_VS == 1 && EEG_VS == * && SpO2_VS == 2 && Tb_VS == 2)
-  // {
-  //   //CHECK: EEG, HRV: slightly low
-  //   VS_combinations = 4;
-  //   Serial1.print("Drugs");
-  // }
-
-  // //Combination 5:
-  // if (HR_VS == 2 && HRV_VS == 1 && RR_VS == 2 && EEG_VS == * && SpO2_VS == 2 && Tb_VS == 2)
-  // {
-  //   //CHECK: HR: slightly high, EEG, HRV: slightly elevated, Sp02: Slightly low/normal
-  //   VS_combinations = 5;
-  //   Serial1.print("Dysrythmia");
-  // }
-
-  // //Combination 6:
-  // if (HR_VS == 3 && HRV_VS == 2 && RR_VS == 2 && EEG_VS == * && SpO2_VS == 2 && Tb_VS == 2)
-  // {
-  //   //CHECK: EEG
-  //   VS_combinations = 6;
-  //   Serial1.print("Convultion");
-  // }
-
-  if(VS_combinations == 0)
-  {
-   Serial1.print("Healthy"); 
-  }
 
 }
 
