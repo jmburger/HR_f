@@ -9,6 +9,9 @@
 // Set up the brain reader, pass it the software serial object you want to listen on.
 Brain brain(Serial1);
 // Brain variables:
+uint8_t signal_strength = 0;
+uint8_t Attention = 0;
+uint8_t Meditation = 0;   
 
 // MAX30100 sensor
 #include <MAX30100.h>
@@ -54,17 +57,17 @@ float sum = 0;
 float Val[3];
 
 // Temperature sensor (thermistor)
-#define THERMISTORPIN A0            // which analog pin to connect
-#define THERMISTORNOMINAL 100000    // resistance at 25 degrees C 
-#define TEMPERATURENOMINAL 25       // temp. for nominal resistance (almost always 25 C)
-#define NUMSAMPLES 50               // how many samples to take and average, more takes longer but is more 'smooth'
-#define BCOEFFICIENT 4036           // The beta coefficient of the thermistor (usually 3000-4000)
-#define SERIESRESISTOR 100000       // the value of the 'other' resistor
+#define THERMISTORPIN 		A0      // Which analog pin to connect
+#define THERMISTORNOMINAL 	100000  // Resistance at 25 degrees C 
+#define TEMPERATURENOMINAL 	25      // Temp. for nominal resistance (almost always 25 C)
+#define NUMSAMPLES 			50      // How many samples to take and average, more takes longer but is more 'smooth'
+#define BCOEFFICIENT 		4036    // The beta coefficient of the thermistor (usually 3000-4000)
+#define SERIESRESISTOR 		100000  // the value of the 'other' resistor
 uint16_t samples[NUMSAMPLES];       // Temperature variables
-
+float Core_body_temp = 0;
 
 // Global values:
-float Core_body_temp = 0;
+float Tb_val = 0;
 int BPM_val = 0;
 float SpO2_val = 0;
 int RR_val = 0;
@@ -77,6 +80,9 @@ bool start_up_flag = true;
 void setup() {
 	// Start serial terminal:
   	Serial.begin(57600);
+  	// Start the bluetooth serial.
+    //Serial1.begin(57600);
+
   	Serial.println("VITALTRAC:");
     Serial.println("=========");
     Serial.println("");
@@ -89,21 +95,66 @@ void setup() {
 void loop() {
 	
 	int recording_time = 10000000 + Warm_up;					//Heart rate recording time
-	HR_SpO2_RR_HRV(recording_time);
 	Body_temperature();
+	HR_SpO2_RR_HRV(recording_time);
+	
 	// Test print:
+	Serial.print("Body Temperature: ");
+	Serial.println(Tb_val);
 	Serial.print("BPM:	");
-	Serial.println(int(BPM_val));
+	Serial.println(BPM_val);
 	Serial.print("SpO2:	");
 	Serial.println(SpO2_val);
 	Serial.print("RR:	");
-	Serial.println(int(RR_val));
+	Serial.println(RR_val);
 	Serial.print("HRV:	");
 	Serial.println(HRV_val);
 
 }
 
-int Body_temperature()
+// Function to get EEG values:
+void EEG(int rec_time)
+{
+	// Brain variables:
+	int i = 0;
+	int Sum_size = rec_time/1000000;					// Size of array_.
+	uint8_t Sum_Attention;								// Attention 
+	uint8_t Sum_Meditation;								// Meditation
+	int Brain_prev = 0; 
+	int delta_EEG = 0;									// delta time of warm up
+  	int start_EEG = micros();							// start time of warm up (1,5 second)
+  	while(delta_EEG <= rec_time)		
+  	{
+		// Expect packets about once per second:
+	    // "signal strength, attention, meditation, delta, theta, low alpha, high alpha, low beta, high beta, low gamma, high gamma"
+	    brain.update();
+	    if (Brain_prev != brain.readDelta() && brain.readDelta() != 0) 
+	    {
+	        // Signal strength:
+	        Brain_prev = brain.readDelta();
+	        signal_strength = brain.readSignalQuality();	// 0 good signal , 200 poor signal
+	        Sum_Attention += brain.readAttention();           
+	        Sum_Meditation += brain.readMeditation(); 
+
+	        i++;
+
+	        //Test print bluetooth serial:
+	        //Serial.print(signal_strength);
+	        //Serial.print(",");
+	        //Serial.print(attention);
+	        //Serial.print(",");
+	        //Serial.println(meditation);
+	    }	
+	    delta_EEG = micros() - start_EEG;					// delta time of warm up
+
+	    //Calculating average EEG value:
+	    Attention = Sum_Attention/Sum_size;
+	    Meditation = Sum_Meditation/Sum_size;
+	}
+}
+
+// Function to get core body temperature:
+void Body_temperature()
 {
 	// Required variables:
 	uint8_t i;
@@ -139,6 +190,7 @@ int Body_temperature()
     Core_body_temp += 1.0 / (TEMPERATURENOMINAL + 273.15); 		// + (1/To)
     Core_body_temp = 1.0 / Core_body_temp;                 		// Invert
     Core_body_temp -= 273.15;                         			// convert to C 
+    Tb_val = Core_body_temp;
    
     //Test print:
     //Serial.print("Temperature "); 
@@ -146,7 +198,7 @@ int Body_temperature()
     //Serial.println(" *C");	
 }
 
-// Function to get heart rate value:
+// Function to get HR, SpO2, RR, HRV values:
 void HR_SpO2_RR_HRV(int rec_time)
 {
 	// start-up the MAX30100 sensor
@@ -380,9 +432,9 @@ void HR_SpO2_RR_HRV(int rec_time)
     float HRV_score_float = log(HRV);             			// ln(RMSSD) value between 0-6.5
     float HRV_score = HRV_score_float*15.385;       		// ln(RMSSD0 value between 0-100
     HRV_val = HRV_score;
-
 }
 
+// Balance IR and RED currents:
 void Current_Balancing()
 {
 	//Variables store raw RED and IR values
@@ -436,8 +488,7 @@ void Current_Balancing()
   	MAX30100_sensor.shutdown();								// Shutdown MAX30100 sensor
 }
 
-
-//-------------------------MAX30100 START UP-----------------------------------------
+// MAX30100 sensor start up:
 void MAX30100_Startup()
 {
   //Serial1.print("Initializing MAX30100..");
@@ -454,10 +505,9 @@ void MAX30100_Startup()
   	MAX30100_sensor.setSamplingRate(Sample_Rate);            //set sample rate
   	MAX30100_sensor.setHighresModeEnabled(Highres_mode);     //set high resolution
   	MAX30100_sensor.resetFifo();                             //rest fifo register 
-
 }
-//-------------------------Functions------------------------------------------------
-//DC Removeral filter for Heart Rate (HR)
+
+// DC Removeral filter for Heart Rate (HR)
 float DCR_function_IR(double raw_input, float alpha, bool ret) 
 {  
   float output_DCR = 0;
@@ -477,7 +527,8 @@ float DCR_function_IR(double raw_input, float alpha, bool ret)
   //Serial1.println(output_DCR); 
   return output_DCR;
 }
-//DC Removeral filter for Sp02
+
+// DC Removeral filter for Sp02
 float DCR_function_RED(double raw_input, float alpha, bool ret) 
 {  
   float output_DCR = 0;
@@ -497,6 +548,7 @@ float DCR_function_RED(double raw_input, float alpha, bool ret)
   //Serial1.println(output_DCR); 
   return output_DCR;
 }
+
 // Mean difference filter
 float MDF_function(float raw_input) 
 {
@@ -514,7 +566,8 @@ float MDF_function(float raw_input)
   //Serial1.println(avg);
   return avg - raw_input;
 }
-//Low pass filter (Butterworth filter)
+
+// Low pass filter (Butterworth filter)
 float Butterworth_LPF_function(float raw_input) 
 {
   //Second order low pass filter
@@ -530,4 +583,3 @@ float Butterworth_LPF_function(float raw_input)
   //Serial1.println(BWF_output);  
   return BWF_output;
 }
-//----------------------------------------------------------------------------------
