@@ -53,45 +53,122 @@ float sum = 0;
 //Low pass filter (butterworth filter) variables:
 float Val[3];
 
+// Temperature sensor (thermistor)
+#define THERMISTORPIN A0            // which analog pin to connect
+#define THERMISTORNOMINAL 100000    // resistance at 25 degrees C 
+#define TEMPERATURENOMINAL 25       // temp. for nominal resistance (almost always 25 C)
+#define NUMSAMPLES 50               // how many samples to take and average, more takes longer but is more 'smooth'
+#define BCOEFFICIENT 4036           // The beta coefficient of the thermistor (usually 3000-4000)
+#define SERIESRESISTOR 100000       // the value of the 'other' resistor
+uint16_t samples[NUMSAMPLES];       // Temperature variables
+
+
+// Global values:
+float Core_body_temp = 0;
+int BPM_val = 0;
+float SpO2_val = 0;
+int RR_val = 0;
+float HRV_val = 0;
+
+// Flags
+bool start_up_flag = true;
+
 
 void setup() {
 	// Start serial terminal:
   	Serial.begin(57600);
+  	Serial.println("VITALTRAC:");
+    Serial.println("=========");
+    Serial.println("");
+    Serial.println("Warming Up.....");
+    Serial.println("");
+  	// On start up do current balancing:
+  	Current_Balancing();
 }
 
 void loop() {
 	
-	//Current_Balancing();
-	int recording_time = 10000000 + Warm_up;
-	int Exp_Peaks = ((recording_time - Warm_up)/1000000)*0.5;	//Expected beat peaks if heart rate is 30 bpm
-	HR_SpO2(recording_time, Exp_Peaks);
-	Serial.println("end");
+	int recording_time = 10000000 + Warm_up;					//Heart rate recording time
+	HR_SpO2_RR_HRV(recording_time);
+	Body_temperature();
+	// Test print:
+	Serial.print("BPM:	");
+	Serial.println(int(BPM_val));
+	Serial.print("SpO2:	");
+	Serial.println(SpO2_val);
+	Serial.print("RR:	");
+	Serial.println(int(RR_val));
+	Serial.print("HRV:	");
+	Serial.println(HRV_val);
 
 }
 
+int Body_temperature()
+{
+	// Required variables:
+	uint8_t i;
+    float average;
+ 
+    // take N samples in a row, with a slight delay
+    for (i=0; i< NUMSAMPLES; i++) {
+     samples[i] = analogRead(THERMISTORPIN);
+     delay(10);
+     //Serial.println(samples[i]);    //test print
+    }
+    
+    // average all the samples out
+    average = 0;
+    for (i=0; i< NUMSAMPLES; i++) {
+       average += samples[i];
+    }
+    average /= NUMSAMPLES;
+   
+    //Test print:
+    //Serial.print("Average analog reading "); 
+    //Serial.println(average);
+    // convert the value to resistance
+    average = 1023 / average - 1;
+    average = SERIESRESISTOR / average;
+    //Test print:
+    //Serial.print("Thermistor resistance "); 
+    //Serial.println(average);
+   
+    Core_body_temp = average / THERMISTORNOMINAL;     			// (R/Ro)
+    Core_body_temp = log(Core_body_temp);                  		// ln(R/Ro)
+    Core_body_temp /= BCOEFFICIENT;                   			// 1/B * ln(R/Ro)
+    Core_body_temp += 1.0 / (TEMPERATURENOMINAL + 273.15); 		// + (1/To)
+    Core_body_temp = 1.0 / Core_body_temp;                 		// Invert
+    Core_body_temp -= 273.15;                         			// convert to C 
+   
+    //Test print:
+    //Serial.print("Temperature "); 
+    //Serial.print(Core_body_temp);
+    //Serial.println(" *C");	
+}
+
 // Function to get heart rate value:
-int HR_SpO2(int rec_time, int Expected_Peaks)
+void HR_SpO2_RR_HRV(int rec_time)
 {
 	// start-up the MAX30100 sensor
 	MAX30100_Startup();					
-	//Variables store raw RED and IR values
+	//Variables store raw RED and IR values:
 	uint16_t raw_IR_Val = 0;
 	uint16_t raw_RED_Val = 0;
-	// Recording required varabiles
-	// Varabiles:
-	int IR_array_size = rec_time/5000;				// IR's size of array_.
-	int SSF_array_size = (rec_time-Warm_up)/5000;	// SSF's size of array_.
-	float IR_AC_array[IR_array_size];      			// IR signal AC array_.
-	float SSF_output[SSF_array_size];           	// SSF output array_.  	int i = 0;                        
-	int i = 0;										//Counter
-  	float IR_DC_val = 0;               				// DC value of the IR signal
-  	float RED_DC_val = 0;              				// DC value of the RED signal
-  	float IR_DC_val_SpO2 = 0;          				// DC value of the IR signal for SpO2 calculation
-  	float RED_DC_val_SpO2 = 0;         				// DC value of the RED signal for SpO2 calculation
-  	float Sum_AC_IR = 0;               				// Sum of the IR AC signal value
-  	float Sum_AC_RED = 0;              				// Sum of the RED AC signal value
-  	int delta_rec = 0;				      			// delta time between current and start time
-  	int start_rec = micros();		  				// start record time
+	int Expected_Peaks = ((rec_time - Warm_up)/1000000)*0.5;	//Expected beat peaks if heart rate is 30 bpm
+	// Recording required varabiles:
+	int IR_array_size = rec_time/5000;							// IR's size of array_.
+	int SSF_array_size = (rec_time-Warm_up)/5000;				// SSF's size of array_.
+	float IR_AC_array[IR_array_size];      						// IR signal AC array_.
+	float SSF_output[SSF_array_size];           				// SSF output array_.  	int i = 0;                        
+	int i = 0;													//Counter
+  	float IR_DC_val = 0;               							// DC value of the IR signal
+  	float RED_DC_val = 0;              							// DC value of the RED signal
+  	float IR_DC_val_SpO2 = 0;          							// DC value of the IR signal for SpO2 calculation
+  	float RED_DC_val_SpO2 = 0;         							// DC value of the RED signal for SpO2 calculation
+  	float Sum_AC_IR = 0;               							// Sum of the IR AC signal value
+  	float Sum_AC_RED = 0;              							// Sum of the RED AC signal value
+  	int delta_rec = 0;				      						// delta time between current and start time
+  	int start_rec = micros();		  							// start record time
   	// while loop to record 5 seconds of data:
 	while(delta_rec <= rec_time)
     {
@@ -105,14 +182,14 @@ int HR_SpO2(int rec_time, int Expected_Peaks)
         //Calculating AC RMS value: (only after 100 iterations - remove noise)
         if (i > 300 && i <= 700)
         {
-          Sum_AC_IR += pow((IR_AC_array[i]),2);                                   //Sum of the IR AC signal value
+          Sum_AC_IR += pow((IR_AC_array[i]),2);                                 //Sum of the IR AC signal value
         }
         //Add filtering to raw values:
         IR_AC_array[i] = MDF_function(IR_AC_array[i]);                          //mean difference filter IR LED data 
         IR_AC_array[i] = Butterworth_LPF_function(IR_AC_array[i]);              //low pass butterworth filter IR LED data
         //Get DC value from signal:
         IR_DC = true;
-        IR_DC_val = DCR_function_IR(raw_IR_Val, ALPHA_DCR, IR_DC);        //Get DC value from IR signal
+        IR_DC_val = DCR_function_IR(raw_IR_Val, ALPHA_DCR, IR_DC);        		//Get DC value from IR signal
         if (i == 700)
         {
           IR_DC_val_SpO2 = IR_DC_val;
@@ -122,15 +199,15 @@ int HR_SpO2(int rec_time, int Expected_Peaks)
         //Serial1.print(" , ");
         // RED Signal:
         bool RED_DC = false;	//Return either DC value (true) or AC value (false)  
-        float RED_AC_value = DCR_function_RED(raw_RED_Val, ALPHA_DCR, RED_DC);  //filter raw RED LED data through DC removal
+        float RED_AC_value = DCR_function_RED(raw_RED_Val, ALPHA_DCR, RED_DC); 	//filter raw RED LED data through DC removal
         //Calculating AC RMS value: (only after 50 iterations - remove noise)
         if (i > 300 && i <= 700)
         {
-          Sum_AC_RED += pow((RED_AC_value),2);                                    //Sum of the RED AC signal value
+          Sum_AC_RED += pow((RED_AC_value),2);                               	//Sum of the RED AC signal value
         }
         //Get DC value from signal
         RED_DC = true;
-        RED_DC_val = DCR_function_RED(raw_RED_Val, ALPHA_DCR, RED_DC);    //Get DC value from RED signal
+        RED_DC_val = DCR_function_RED(raw_RED_Val, ALPHA_DCR, RED_DC);    		//Get DC value from RED signal
         if (i == 700)
         {
           RED_DC_val_SpO2 = RED_DC_val;
@@ -147,16 +224,16 @@ int HR_SpO2(int rec_time, int Expected_Peaks)
         //Serial.println(i);
         i++;
       }
-      delta_rec = micros() - start_rec;				// delta time calculation 30 seconds 
+      delta_rec = micros() - start_rec;						// delta time calculation 30 seconds 
   	}
   	// Shut down max30100 sensor:
-  	MAX30100_sensor.shutdown();       // Shutdown MAX30100 sensor
+  	MAX30100_sensor.shutdown();       						// Shutdown MAX30100 sensor
   	// Start data processing: 
 
   	// Slope Sum Function (SSF):
-    int window = 20;         //length of analyzing window
-    int j = 0;               //new counter
-    float SSF = 0;           //summation in window period
+    int window = 20;         								//length of analyzing window
+    int j = 0;               								//new counter
+    float SSF = 0;           								//summation in window period
     for (int i = 300; i < IR_array_size; i++)
     {
       if (i <= (window+300))
@@ -226,6 +303,84 @@ int HR_SpO2(int rec_time, int Expected_Peaks)
     //   Serial.println(threshold);
     // } 
 
+    // Counting the peaks to calculate BPM, RR and HRV:
+    int Peak_count = 0;                   // Counter to count the number of peaks
+    int P2p_time_start = 0;               // Peak to peak start time
+    int Sum_of_p2p_times = 0;             // sum of the times between peaks in the 5 second recording
+    int Delta_p2p_time[110];              // Peak to peak delta time
+    int Start_delta = 0;
+    for(int i = 0; i < SSF_array_size; i++)
+    {  
+      if (SSF_output[i] > threshold)      											//Count peaks above threshold (beats) 
+      {
+        if(SSF_output[i-1] < SSF_output[i] && SSF_output[i] > SSF_output[i+1])    	//Peak detecting 
+        {
+          Peak_count++;																//increment the peak counts 
+          if (Peak_count == 1) 
+          {
+          	Start_delta = micros();           										// start of the total recording time
+          }                                          
+          if (Peak_count > 1)
+          {
+            Delta_p2p_time[Peak_count-2] = micros() - P2p_time_start;    			//delta time between peak to peak
+            // Test print:
+            //Serial1.println(Delta_p2p_time[Peak_count-2]);
+            Sum_of_p2p_times += Delta_p2p_time[Peak_count-2];
+          }
+          P2p_time_start = micros();                       		 					//starting time of peak to peak
+        }
+      }
+    }
+    int End_delta = micros() - Start_delta;                 						// Delta time of the for loop
+
+    // Calculating heart rate (HR):
+    float refine_factor = 0.95;														// Factor to refine BPM value
+    int Total_60s = End_delta*(60000000/(rec_time-Warm_up));                        // Taking the 5 seconds/ 30 seconds to 60 seconds
+    int Avg_p2p_time = Sum_of_p2p_times/Peak_count;      							// Average peak to peak time in 5 second recording 
+    float BPM = (Total_60s/Avg_p2p_time)*refine_factor;         					// Calculating the beats per minute
+    BPM_val = BPM;
+
+    // Calculating SpO2:
+    float RMS_AC_IR = sqrt(Sum_AC_IR/400);                     						// RMS of the IR AC signal
+    float RMS_AC_RED = sqrt(Sum_AC_RED/400);                   						// RMS of the RED AC signal
+    float R = (RMS_AC_RED/RED_DC_val_SpO2)/(RMS_AC_IR/IR_DC_val_SpO2);    			// R value used to calculate Sp02
+    float SpO2 = 110 - 25*R; 
+    SpO2_val = SpO2;
+
+    // Calculating respiratory rate (RR):
+	int RR_count = 0;
+	for ( int i = 1; i < Peak_count-2; i++)
+	{
+	  // Test print:
+	  //Serial1.println(Delta_p2p_time[i]);
+	  if(Delta_p2p_time[i-1] < Delta_p2p_time[i] && Delta_p2p_time[i] > Delta_p2p_time[i+1])
+	  {
+	    RR_count++;                                       	// count breaths
+	    // Test print:
+	    //Serial1.println("-----");
+	  }
+	}
+    float RR = RR_count*2;                               	// RR breaths per minute (count 30's times 2)
+    RR_val = RR;
+
+    // Calculating heart rate variability (HRV):
+    float HRV = 0;            								// Heart rate variablity score from 0 - 100
+    int sum_of_HRV = 0;     								//sum of square peak to peak values for RMSSD calculation 
+    for(int i = 0; i < Peak_count-2; i++) 
+    {
+      // Test print:
+      //Serial.println(Delta_p2p_time[i]);
+      sum_of_HRV += pow((Delta_p2p_time[i] - Delta_p2p_time[i+1]), 2);
+      //Serial.println(sum_of_HRV);
+    }
+    // Test print:
+    //Serial.println(sum_of_HRV);
+    //Serial.println(Peak_count);
+    HRV = sqrt(sum_of_HRV/(Peak_count-1));        			// RMSSD calculation to get HRV score
+    float HRV_score_float = log(HRV);             			// ln(RMSSD) value between 0-6.5
+    float HRV_score = HRV_score_float*15.385;       		// ln(RMSSD0 value between 0-100
+    HRV_val = HRV_score;
+
 }
 
 void Current_Balancing()
@@ -233,35 +388,44 @@ void Current_Balancing()
 	//Variables store raw RED and IR values
 	uint16_t raw_IR_Val = 0;
 	uint16_t raw_RED_Val = 0;
-	int delta_5s = 0;					// delta time between current and start time
-  	int start_5s = micros();			// start 5 second current balancing
+	MAX30100_Startup();										// start-up the MAX30100 sensor
+  	// Warm Up:
+  	int delta_warmup = 0;									// delta time of warm up
+  	int start_warmup = micros();							// start time of warm up (1,5 second)
+  	while(delta_warmup <= Warm_up)		
+  	{
+     	MAX30100_sensor.update();   						// Update sensor
+  		delta_warmup = micros() - start_warmup;				// delta time of warm up
+  	}
+	int delta_5s = 0;										// delta time between current and start time
+  	int start_5s = micros();								// start 5 second current balancing
   	while(delta_5s <= 5000000)
   	{
-  		delta_5s = micros() - start_5s; 				// delta time calculation 3 seconds
+  		delta_5s = micros() - start_5s; 					// delta time calculation 3 seconds
   		// if raw data is available 
-  		MAX30100_sensor.update();		// Update sensor
+  		MAX30100_sensor.update();																				// Update sensor
     	if (MAX30100_sensor.getRawValues(&raw_IR_Val, &raw_RED_Val))
     	{
   	    	//Get DC value from IR signal:
-  			bool IR_DC = true;	//Return either DC value (true) or AC value (false)
-  			float IR_DC_val = DCR_function_IR(raw_IR_Val, ALPHA_DCR, IR_DC);       //Get DC value from IR signal
+  			bool IR_DC = true;																					//Return either DC value (true) or AC value (false)
+  			float IR_DC_val = DCR_function_IR(raw_IR_Val, ALPHA_DCR, IR_DC);       								//Get DC value from IR signal
 
   	    	//Get DC value from RED signal:
-  			bool RED_DC = true; 	//Return either DC value (true) or AC value (false)
-  	    	float RED_DC_val = DCR_function_RED(raw_RED_Val, ALPHA_DCR, RED_DC);    //Get DC value from RED signal
+  			bool RED_DC = true; 																				//Return either DC value (true) or AC value (false)
+  	    	float RED_DC_val = DCR_function_RED(raw_RED_Val, ALPHA_DCR, RED_DC);    							//Get DC value from RED signal
   	
   	    	//RED and IR DC current balancing:
   			if (IR_DC_val - RED_DC_val > ACCEPTABLE_CURRENT_DIFF && RED_current < MAX30100_LED_CURR_50MA)
   			{
     			counter++;
-    			RED_current = LEDCurrent_array[counter];          			              //change RED LED's current
-    			MAX30100_sensor.setLedsCurrent(IR_current, RED_current);   	          //Set led's current IR and Red respectively
+    			RED_current = LEDCurrent_array[counter];          			              						//change RED LED's current
+    			MAX30100_sensor.setLedsCurrent(IR_current, RED_current);   	          							//Set led's current IR and Red respectively
     		}
   			if (RED_DC_val - IR_DC_val > ACCEPTABLE_CURRENT_DIFF && RED_current > 0)
   			{
     			counter--;
-    			RED_current = LEDCurrent_array[counter];          			              //change RED LED's current
-    			MAX30100_sensor.setLedsCurrent(IR_current, RED_current);   	          //Set led's current IR and Red respectively
+    			RED_current = LEDCurrent_array[counter];          			              						//change RED LED's current
+    			MAX30100_sensor.setLedsCurrent(IR_current, RED_current);   	          							//Set led's current IR and Red respectively
     		}
     		// Test print: 
   			//Serial1.print(RED_DC_val); 
@@ -269,6 +433,7 @@ void Current_Balancing()
   			//Serial1.println(IR_DC_val);
   		}
   	}
+  	MAX30100_sensor.shutdown();								// Shutdown MAX30100 sensor
 }
 
 
