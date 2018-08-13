@@ -94,21 +94,45 @@ void setup() {
 
 void loop() {
 	
-	int recording_time = 10000000 + Warm_up;					//Heart rate recording time
+	int recording_time_HR = 10000000 + Warm_up;					//Heart rate recording time
+	int recording_time_EEG = 5000000;					//EEG recording time
 	Body_temperature();
-	HR_SpO2_RR_HRV(recording_time);
+	HR_SpO2_RR_HRV(recording_time_HR);
+	//EEG(recording_time_EEG);							
 	
-	// Test print:
-	Serial.print("Body Temperature: ");
-	Serial.println(Tb_val);
-	Serial.print("BPM:	");
-	Serial.println(BPM_val);
-	Serial.print("SpO2:	");
-	Serial.println(SpO2_val);
-	Serial.print("RR:	");
-	Serial.println(RR_val);
-	Serial.print("HRV:	");
-	Serial.println(HRV_val);
+    //Test print:
+    Serial.println("VITALTRAC:");
+    Serial.println("=========");
+    Serial.println("");
+    Serial.println("Vital Data:");
+    Serial.println("-----------");
+    Serial.print("Core Body Temperature:  "); 
+    Serial.println(Tb_val);               // print core body temperature ever 1 minute.
+    delay(20);
+    Serial.print("BPM:                     ");
+    Serial.println(BPM_val);
+    delay(20);
+    Serial.print("HRV:                      ");
+    Serial.println(HRV_val);
+    delay(20);
+    Serial.print("SpO2:                    ");
+    Serial.println(SpO2_val);
+    delay(20);
+    Serial.print("RR:                         ");
+    Serial.println(RR_val);
+    delay(20);
+    Serial.println("");
+    Serial.println("EEG Data:");
+    Serial.println("-----------");
+    delay(20);
+    Serial.print("Signal Strength:   ");
+    Serial.println(signal_strength);
+    delay(20);
+    Serial.print("Attention:              ");
+    Serial.println(Attention);
+    delay(20);
+    Serial.print("Meditation:           ");
+    Serial.println(Meditation);
 
 }
 
