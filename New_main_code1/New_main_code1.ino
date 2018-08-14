@@ -74,10 +74,15 @@ int RR_val = 0;
 float HRV_val = 0;
 
 // Flags
-bool start_up_flag = true;
 
+//timer requiremnts:
+int start_15s = 0;
+int delta_15s = 0;
+int start_1m = 0;
+int delta_1m = 0;
 
 void setup() {
+
 	// Start serial terminal:
   	Serial.begin(57600);
   	// Start the bluetooth serial.
@@ -89,16 +94,45 @@ void setup() {
     Serial.println("Warming Up.....");
     Serial.println("");
   	// On start up do current balancing:
-  	Current_Balancing();
+  	Current_Balancing();	
+  	// On start up get body temperature:				
+  	Body_temperature();	
+  	// On start up get HR SpO2 RR HRV:
+  	int recording_time_HR = 10000000 + Warm_up;			//Heart rate recording time
+	HR_SpO2_RR_HRV(recording_time_HR, true);
+	// On start up get EEG data:
+	//int recording_time_EEG = 5000000;					//EEG recording time
+	//EEG(recording_time_EEG);
+
+	// Print vital data:
+	print_data();
+
+	//Start timers:
+	start_15s = micros();
+	start_1m = micros();
 }
 
 void loop() {
 	
-	int recording_time_HR = 10000000 + Warm_up;			//Heart rate recording time
-	int recording_time_EEG = 5000000;					//EEG recording time
-	Body_temperature();
-	HR_SpO2_RR_HRV(recording_time_HR);
+	//int recording_time_EEG = 5000000;					//EEG recording time
 	//EEG(recording_time_EEG);		
+
+	if(delta_15s >= 15000000)    
+	{
+		int recording_time_HR = 10000000 + Warm_up;			//Heart rate recording time
+		HR_SpO2_RR_HRV(recording_time_HR, false);
+		print_data();
+		start_15s = micros();    			
+	}
+	delta_15s = micros() - start_15s;   	
+
+	if(delta_1m >= 60000000)    
+	{
+		Body_temperature();
+		start_1m = micros();    			
+	}
+	delta_1m = micros() - start_1m;   
+
 
 	//Vital signs combinations:
     // int VS_combinations = 0;
@@ -158,7 +192,12 @@ void loop() {
     //  Serial1.println("Healthy"); 
     // }			
 	
-    //Test print:
+
+
+}
+void print_data()
+{
+	//Test print:
     Serial.println("VITALTRAC:");
     Serial.println("=========");
     Serial.println("");
@@ -191,7 +230,6 @@ void loop() {
     // delay(20);
     // Serial.print("Meditation:           ");
     // Serial.println(Meditation);
-
 }
 
 // Function to get EEG values:
@@ -281,7 +319,7 @@ void Body_temperature()
 }
 
 // Function to get HR, SpO2, RR, HRV values:
-void HR_SpO2_RR_HRV(int rec_time)
+void HR_SpO2_RR_HRV(int rec_time, bool RR_HRV)
 {
 	// start-up the MAX30100 sensor
 	MAX30100_Startup();					
@@ -481,39 +519,42 @@ void HR_SpO2_RR_HRV(int rec_time)
     float SpO2 = 110 - 25*R; 
     SpO2_val = SpO2;
 
-    // Calculating respiratory rate (RR):
-	int RR_count = 0;
-	for ( int i = 1; i < Peak_count-2; i++)
-	{
-	  // Test print:
-	  //Serial1.println(Delta_p2p_time[i]);
-	  if(Delta_p2p_time[i-1] < Delta_p2p_time[i] && Delta_p2p_time[i] > Delta_p2p_time[i+1])
-	  {
-	    RR_count++;                                       	// count breaths
-	    // Test print:
-	    //Serial1.println("-----");
-	  }
-	}
-    float RR = RR_count*2;                               	// RR breaths per minute (count 30's times 2)
-    RR_val = RR;
-
-    // Calculating heart rate variability (HRV):
-    float HRV = 0;            								// Heart rate variablity score from 0 - 100
-    int sum_of_HRV = 0;     								//sum of square peak to peak values for RMSSD calculation 
-    for(int i = 0; i < Peak_count-2; i++) 
+    if (RR_HRV == true)
     {
-      // Test print:
-      //Serial.println(Delta_p2p_time[i]);
-      sum_of_HRV += pow((Delta_p2p_time[i] - Delta_p2p_time[i+1]), 2);
-      //Serial.println(sum_of_HRV);
+    	// Calculating respiratory rate (RR):
+		int RR_count = 0;
+		for ( int i = 1; i < Peak_count-2; i++)
+		{
+		  // Test print:
+		  //Serial1.println(Delta_p2p_time[i]);
+		  if(Delta_p2p_time[i-1] < Delta_p2p_time[i] && Delta_p2p_time[i] > Delta_p2p_time[i+1])
+		  {
+		    RR_count++;                                       	// count breaths
+		    // Test print:
+		    //Serial1.println("-----");
+		  }
+		}
+	    float RR = RR_count*2;                               	// RR breaths per minute (count 30's times 2)
+	    RR_val = RR;
+
+	    // Calculating heart rate variability (HRV):
+	    float HRV = 0;            								// Heart rate variablity score from 0 - 100
+	    int sum_of_HRV = 0;     								//sum of square peak to peak values for RMSSD calculation 
+	    for(int i = 0; i < Peak_count-2; i++) 
+	    {
+	      // Test print:
+	      //Serial.println(Delta_p2p_time[i]);
+	      sum_of_HRV += pow((Delta_p2p_time[i] - Delta_p2p_time[i+1]), 2);
+	      //Serial.println(sum_of_HRV);
+	    }
+	    // Test print:
+	    //Serial.println(sum_of_HRV);
+	    //Serial.println(Peak_count);
+	    HRV = sqrt(sum_of_HRV/(Peak_count-1));        			// RMSSD calculation to get HRV score
+	    float HRV_score_float = log(HRV);             			// ln(RMSSD) value between 0-6.5
+	    float HRV_score = HRV_score_float*15.385;       		// ln(RMSSD0 value between 0-100
+	    HRV_val = HRV_score;
     }
-    // Test print:
-    //Serial.println(sum_of_HRV);
-    //Serial.println(Peak_count);
-    HRV = sqrt(sum_of_HRV/(Peak_count-1));        			// RMSSD calculation to get HRV score
-    float HRV_score_float = log(HRV);             			// ln(RMSSD) value between 0-6.5
-    float HRV_score = HRV_score_float*15.385;       		// ln(RMSSD0 value between 0-100
-    HRV_val = HRV_score;
 }
 
 // Balance IR and RED currents:
