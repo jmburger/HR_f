@@ -76,10 +76,10 @@ float HRV_val = 0;
 // Flags
 
 //timer requiremnts:
-int start_15s = 0;
-int delta_15s = 0;
-int start_1m = 0;
-int delta_1m = 0;
+int start_12s = 0;
+int delta_12s = 0;
+int start_2m = 0;
+int delta_2m = 0;
 
 void setup() {
 
@@ -93,6 +93,7 @@ void setup() {
     Serial.println("");
     Serial.println("Warming Up.....");
     Serial.println("");
+
   	// On start up do current balancing:
   	Current_Balancing();	
   	// On start up get body temperature:				
@@ -108,8 +109,8 @@ void setup() {
 	print_data();
 
 	//Start timers:
-	start_15s = micros();
-	start_1m = micros();
+	start_12s = micros();
+	start_2m = micros();
 }
 
 void loop() {
@@ -117,21 +118,27 @@ void loop() {
 	//int recording_time_EEG = 5000000;					//EEG recording time
 	//EEG(recording_time_EEG);		
 
-	if(delta_15s >= 15000000)    
+	// do every 12 seconds
+	if(delta_12s >= 12000000)    
 	{
-		int recording_time_HR = 10000000 + Warm_up;			//Heart rate recording time
+		int recording_time_HR = 8000000 + Warm_up;			//Heart rate recording time
 		HR_SpO2_RR_HRV(recording_time_HR, false);
-		print_data();
-		start_15s = micros();    			
-	}
-	delta_15s = micros() - start_15s;   	
-
-	if(delta_1m >= 60000000)    
-	{
 		Body_temperature();
-		start_1m = micros();    			
+		print_data();
+		start_12s = micros();    			
 	}
-	delta_1m = micros() - start_1m;   
+	delta_12s = micros() - start_12s; 
+
+	// do every 2 minutes
+	if(delta_2m >= 120000000)    
+	{
+		int recording_time_HR = 30000000 + Warm_up;			//Heart rate recording time
+		HR_SpO2_RR_HRV(recording_time_HR, true);
+		Body_temperature();
+		print_data();
+		start_2m = micros();    			
+	}
+	delta_2m = micros() - start_2m;   
 
 
 	//Vital signs combinations:
@@ -507,7 +514,14 @@ void HR_SpO2_RR_HRV(int rec_time, bool RR_HRV)
     int End_delta = micros() - Start_delta;                 						// Delta time of the for loop
 
     // Calculating heart rate (HR):
-    float refine_factor = 0.95;														// Factor to refine BPM value
+    float refine_factor = 1;
+    if (RR_HRV == true)
+    {
+    	refine_factor = 1.06;												// Factor to refine BPM value
+    }else
+    {
+    	refine_factor = 0.96;												// Factor to refine BPM value
+    }
     int Total_60s = End_delta*(60000000/(rec_time-Warm_up));                        // Taking the 5 seconds/ 30 seconds to 60 seconds
     int Avg_p2p_time = Sum_of_p2p_times/Peak_count;      							// Average peak to peak time in 5 second recording 
     float BPM = (Total_60s/Avg_p2p_time)*refine_factor;         					// Calculating the beats per minute
