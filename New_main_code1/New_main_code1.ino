@@ -98,7 +98,7 @@ void setup() {
   	// On start up get body temperature:				
   	Body_temperature();	
   	// On start up get HR SpO2 RR HRV:
-  	int recording_time_HR = 10000000 + Warm_up;			//Heart rate recording time
+  	int recording_time_HR = 30000000 + Warm_up;			//Heart rate recording time
 	HR_SpO2_RR_HRV(recording_time_HR, true);
 	// On start up get EEG data:
 	//int recording_time_EEG = 5000000;					//EEG recording time
@@ -331,7 +331,7 @@ void HR_SpO2_RR_HRV(int rec_time, bool RR_HRV)
 	int IR_array_size = rec_time/5000;							// IR's size of array_.
 	int SSF_array_size = (rec_time-Warm_up)/5000;				// SSF's size of array_.
 	float IR_AC_array[IR_array_size];      						// IR signal AC array_.
-	float SSF_output[SSF_array_size];           				// SSF output array_.  	int i = 0;                        
+	//float SSF_output[SSF_array_size];           				// SSF output array_.  	int i = 0;                        
 	int i = 0;													// Counter
   	float IR_DC_val = 0;               							// DC value of the IR signal
   	float RED_DC_val = 0;              							// DC value of the RED signal
@@ -410,7 +410,7 @@ void HR_SpO2_RR_HRV(int rec_time, bool RR_HRV)
     {
       if (i <= (window+300))
       {
-        SSF_output[j] = 0;
+        IR_AC_array[j] = 0;
       }
       else
       {
@@ -423,7 +423,7 @@ void HR_SpO2_RR_HRV(int rec_time, bool RR_HRV)
             SSF += delta_input;          
           }
         }
-        SSF_output[j] = SSF;
+        IR_AC_array[j] = SSF;
       } 
       //Test print:
       //Serial.print(IR_AC_array[i]);
@@ -431,6 +431,7 @@ void HR_SpO2_RR_HRV(int rec_time, bool RR_HRV)
       //Serial.println(SSF_output[j]);
       //Serial.print(",");
       //Serial.println(j);
+      //HERE____SSF_swopped_IR_AC_array
       j++;
     }
     
@@ -440,9 +441,9 @@ void HR_SpO2_RR_HRV(int rec_time, bool RR_HRV)
     bool Peak_detected = false;           // When a peak is detected it becomes true otherwise false
     for (int i = 0; i < SSF_array_size; i++)
     {
-      if(SSF_output[i-1] < SSF_output[i] && SSF_output[i] > SSF_output[i+1])
+      if(IR_AC_array[i-1] < IR_AC_array[i] && IR_AC_array[i] > IR_AC_array[i+1])
       { 
-        Peak = SSF_output[i];
+        Peak = IR_AC_array[i];
         Peak_detected = true;
         for (int j = Expected_Peaks - 1; j >= 0; j--)
         { 
@@ -483,9 +484,9 @@ void HR_SpO2_RR_HRV(int rec_time, bool RR_HRV)
     int Start_delta = 0;
     for(int i = 0; i < SSF_array_size; i++)
     {  
-      if (SSF_output[i] > threshold)      											//Count peaks above threshold (beats) 
+      if (IR_AC_array[i] > threshold)      											//Count peaks above threshold (beats) 
       {
-        if(SSF_output[i-1] < SSF_output[i] && SSF_output[i] > SSF_output[i+1])    	//Peak detecting 
+        if(IR_AC_array[i-1] < IR_AC_array[i] && IR_AC_array[i] > IR_AC_array[i+1])    	//Peak detecting 
         {
           Peak_count++;																//increment the peak counts 
           if (Peak_count == 1) 
