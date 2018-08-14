@@ -36,20 +36,20 @@ const LEDCurrent LEDCurrent_array[] = {MAX30100_LED_CURR_0MA,         //0
 LEDCurrent IR_current = LEDCurrent_array[15];			//define IR led current (50mA)
 LEDCurrent RED_current = LEDCurrent_array[7];			//define initial Red led current (24mA)
 #define Sample_Rate 	MAX30100_SAMPRATE_200HZ         //define sample rate (200Hz)
-#define Pulse_width   	MAX30100_SPC_PW_800US_15BITS   //define led pulse width (800)
-#define Highres_mode  true                            //High resolution mode
-#define Warm_up 1500000
+#define Pulse_width   	MAX30100_SPC_PW_800US_15BITS    //define led pulse width (800)
+#define Highres_mode  	true                            //High resolution mode
+#define Warm_up 		1500000
 //Current Balancing:
 #define ACCEPTABLE_CURRENT_DIFF   2500  // Acceptable current difference between RED current and IR current
-int counter = 8;						            // Current array_ counter
+int counter = 8;						// Current array_ counter
 //Filter Variables
 //DC Removal variable:
-#define SAMPLE_SIZE   100                 //Mean difference filter sample size used to calculate the running mean difference
-#define ALPHA_DCR    0.95                 //DC filter alpha value for LED
-double prev_filtered_IR = 0;     //HR
-double prev_filtered_RED = 0;    //Sp02
+#define SAMPLE_SIZE   100            	// Mean difference filter sample size used to calculate the running mean difference
+#define ALPHA_DCR    0.95             	// DC filter alpha value for LED
+double prev_filtered_IR = 0;     		// HR
+double prev_filtered_RED = 0;    		// Sp02
 //Mean Difference variables:
-float MeanDiff_TV[SAMPLE_SIZE];     // Trailling measurements
+float MeanDiff_TV[SAMPLE_SIZE];     	// Trailling measurements
 uint8_t Index = 0;
 uint8_t count = 0;
 float sum = 0;
@@ -57,13 +57,13 @@ float sum = 0;
 float Val[3];
 
 // Temperature sensor (thermistor)
-#define THERMISTORPIN 		A0      // Which analog pin to connect
-#define THERMISTORNOMINAL 	100000  // Resistance at 25 degrees C 
-#define TEMPERATURENOMINAL 	25      // Temp. for nominal resistance (almost always 25 C)
-#define NUMSAMPLES 			50      // How many samples to take and average, more takes longer but is more 'smooth'
-#define BCOEFFICIENT 		4036    // The beta coefficient of the thermistor (usually 3000-4000)
-#define SERIESRESISTOR 		100000  // the value of the 'other' resistor
-uint16_t samples[NUMSAMPLES];       // Temperature variables
+#define THERMISTORPIN 		A0      	// Which analog pin to connect
+#define THERMISTORNOMINAL 	100000  	// Resistance at 25 degrees C 
+#define TEMPERATURENOMINAL 	25      	// Temp. for nominal resistance (almost always 25 C)
+#define NUMSAMPLES 			50      	// How many samples to take and average, more takes longer but is more 'smooth'
+#define BCOEFFICIENT 		4036    	// The beta coefficient of the thermistor (usually 3000-4000)
+#define SERIESRESISTOR 		100000  	// the value of the 'other' resistor
+uint16_t samples[NUMSAMPLES];       	// Temperature variables
 float Core_body_temp = 0;
 
 // Global values:
@@ -94,11 +94,69 @@ void setup() {
 
 void loop() {
 	
-	int recording_time_HR = 10000000 + Warm_up;					//Heart rate recording time
+	int recording_time_HR = 10000000 + Warm_up;			//Heart rate recording time
 	int recording_time_EEG = 5000000;					//EEG recording time
 	Body_temperature();
 	HR_SpO2_RR_HRV(recording_time_HR);
-	//EEG(recording_time_EEG);							
+	//EEG(recording_time_EEG);		
+
+	//Vital signs combinations:
+    // int VS_combinations = 0;
+    // Serial1.println("");
+    // Serial1.println("Condition:");
+    // Serial1.println("-----------");
+    // delay(20);
+    // Serial1.print("Symptoms of:   ");
+    // //Combination 1:
+    // if (HR_VS == 3 && HRV_VS == 1 && RR_VS == 1 && EEG_VS == * && SpO2_VS == 2 && Tb_VS == 3)
+    // {
+    //   //CHECK: EEG
+    //   VS_combinations = 1;
+    //   Serial1.print("Infection");
+    // }
+    // //Combination 2:
+    // if (HR_VS == 3 && HRV_VS == 2 && RR_VS == 3 && EEG_VS == * && SpO2_VS == 1 && Tb_VS == 3)
+    // {
+    //   //CHECK: Temperature: Slightly high, EEG
+    //   VS_combinations = 2;
+    //   Serial1.print("Pneumonia");
+    // }
+    // //Combination 3:
+    // if (HR_VS == 1 && HRV_VS == 3 && RR_VS == 2 && EEG_VS == * && SpO2_VS == 2 && Tb_VS == 2)
+    // {
+    //   //CHECK: EEG
+    //   VS_combinations = 3;
+    //   Serial1.print("Tired, please rest");
+    // }
+
+    // //Combination 4:
+    // if (HR_VS == 2 && HRV_VS == 1 && RR_VS == 1 && EEG_VS == * && SpO2_VS == 2 && Tb_VS == 2)
+    // {
+    //   //CHECK: EEG, HRV: slightly low
+    //   VS_combinations = 4;
+    //   Serial1.print("Drugs");
+    // }
+
+    // //Combination 5:
+    // if (HR_VS == 2 && HRV_VS == 1 && RR_VS == 2 && EEG_VS == * && SpO2_VS == 2 && Tb_VS == 2)
+    // {
+    //   //CHECK: HR: slightly high, EEG, HRV: slightly elevated, Sp02: Slightly low/normal
+    //   VS_combinations = 5;
+    //   Serial1.print("Dysrythmia");
+    // }
+
+    // //Combination 6:
+    // if (HR_VS == 3 && HRV_VS == 2 && RR_VS == 2 && EEG_VS == * && SpO2_VS == 2 && Tb_VS == 2)
+    // {
+    //   //CHECK: EEG
+    //   VS_combinations = 6;
+    //   Serial1.print("Convultion");
+    // }
+
+    // if(VS_combinations == 0)
+    // {
+    //  Serial1.println("Healthy"); 
+    // }			
 	
     //Test print:
     Serial.println("VITALTRAC:");
@@ -120,19 +178,19 @@ void loop() {
     delay(20);
     Serial.print("RR:                         ");
     Serial.println(RR_val);
-    delay(20);
-    Serial.println("");
-    Serial.println("EEG Data:");
-    Serial.println("-----------");
-    delay(20);
-    Serial.print("Signal Strength:   ");
-    Serial.println(signal_strength);
-    delay(20);
-    Serial.print("Attention:              ");
-    Serial.println(Attention);
-    delay(20);
-    Serial.print("Meditation:           ");
-    Serial.println(Meditation);
+    // delay(20);
+    // Serial.println("");
+    // Serial.println("EEG Data:");
+    // Serial.println("-----------");
+    // delay(20);
+    // Serial.print("Signal Strength:   ");
+    // Serial.println(signal_strength);
+    // delay(20);
+    // Serial.print("Attention:              ");
+    // Serial.println(Attention);
+    // delay(20);
+    // Serial.print("Meditation:           ");
+    // Serial.println(Meditation);
 
 }
 
@@ -236,7 +294,7 @@ void HR_SpO2_RR_HRV(int rec_time)
 	int SSF_array_size = (rec_time-Warm_up)/5000;				// SSF's size of array_.
 	float IR_AC_array[IR_array_size];      						// IR signal AC array_.
 	float SSF_output[SSF_array_size];           				// SSF output array_.  	int i = 0;                        
-	int i = 0;													//Counter
+	int i = 0;													// Counter
   	float IR_DC_val = 0;               							// DC value of the IR signal
   	float RED_DC_val = 0;              							// DC value of the RED signal
   	float IR_DC_val_SpO2 = 0;          							// DC value of the IR signal for SpO2 calculation
