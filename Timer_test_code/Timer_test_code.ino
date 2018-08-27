@@ -25,7 +25,8 @@ void loop()
   if(delta_1m >= 60000000)    
   {
   	Serial.println("1min");
-  	start_1m = micros();    			
+  	start_1m = micros();
+  	start_30s = micros();    			
   }
   delta_1m = micros() - start_1m;   	
 

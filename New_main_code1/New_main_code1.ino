@@ -9,6 +9,7 @@
 // Set up the brain reader, pass it the software serial object you want to listen on.
 Brain brain(Serial1);
 // Brain variables:
+int Brain_prev = 0; 
 uint8_t signal_strength = 0;
 uint8_t Attention = 0;
 uint8_t Meditation = 0;   
@@ -35,17 +36,17 @@ const LEDCurrent LEDCurrent_array[] = {MAX30100_LED_CURR_0MA,         //0
                                        MAX30100_LED_CURR_50MA};       //15 
 LEDCurrent IR_current = LEDCurrent_array[15];			//define IR led current (50mA)
 LEDCurrent RED_current = LEDCurrent_array[7];			//define initial Red led current (24mA)
-#define Sample_Rate 	MAX30100_SAMPRATE_200HZ         //define sample rate (200Hz)
-#define Pulse_width   	MAX30100_SPC_PW_800US_15BITS    //define led pulse width (800)
+#define Sample_Rate 	MAX30100_SAMPRATE_50HZ         //define sample rate (200Hz)
+#define Pulse_width   	MAX30100_SPC_PW_1600US_16BITS    //define led pulse width (1600)
 #define Highres_mode  	true                            //High resolution mode
-#define Warm_up 		1500000
+#define Warm_up 		2500000
 //Current Balancing:
 #define ACCEPTABLE_CURRENT_DIFF   2500  // Acceptable current difference between RED current and IR current
 int counter = 8;						// Current array_ counter
 //Filter Variables
 //DC Removal variable:
 #define SAMPLE_SIZE   100            	// Mean difference filter sample size used to calculate the running mean difference
-#define ALPHA_DCR    0.95             	// DC filter alpha value for LED
+#define ALPHA_DCR     0.95             	// DC filter alpha value for LED
 double prev_filtered_IR = 0;     		// HR
 double prev_filtered_RED = 0;    		// Sp02
 //Mean Difference variables:
@@ -86,13 +87,13 @@ void setup() {
 	// Start serial terminal:
   	Serial.begin(57600);
   	// Start the bluetooth serial.
-    //Serial1.begin(57600);
+    Serial1.begin(57600);
 
-  	Serial.println("VITALTRAC:");
-    Serial.println("=========");
-    Serial.println("");
-    Serial.println("Warming Up.....");
-    Serial.println("");
+  	Serial1.println("VITALTRAC:");
+    Serial1.println("=========");
+    Serial1.println("");
+    Serial1.println("Warming Up.....");
+    Serial1.println("");
 
   	// On start up do current balancing:
   	Current_Balancing();	
@@ -102,8 +103,8 @@ void setup() {
   	int recording_time_HR = 30000000 + Warm_up;			//Heart rate recording time
 	HR_SpO2_RR_HRV(recording_time_HR, true);
 	// On start up get EEG data:
-	//int recording_time_EEG = 5000000;					//EEG recording time
-	//EEG(recording_time_EEG);
+	int recording_time_EEG = 3000000;					//EEG recording time
+	EEG(recording_time_EEG);
 
 	// Print vital data:
 	print_data();
@@ -121,22 +122,27 @@ void loop() {
 	// do every 12 seconds
 	if(delta_12s >= 12000000)    
 	{
+		start_12s = micros();
 		int recording_time_HR = 8000000 + Warm_up;			//Heart rate recording time
 		HR_SpO2_RR_HRV(recording_time_HR, false);
 		Body_temperature();
-		print_data();
-		start_12s = micros();    			
+		//int recording_time_EEG = 2000000;					//EEG recording time
+		//EEG(recording_time_EEG);
+		print_data(); 
+
 	}
 	delta_12s = micros() - start_12s; 
 
 	// do every 2 minutes
 	if(delta_2m >= 120000000)    
 	{
+		start_2m = micros();
 		int recording_time_HR = 30000000 + Warm_up;			//Heart rate recording time
 		HR_SpO2_RR_HRV(recording_time_HR, true);
 		Body_temperature();
-		print_data();
-		start_2m = micros();    			
+		int recording_time_EEG = 2000000;					//EEG recording time
+		EEG(recording_time_EEG);
+		print_data();   			
 	}
 	delta_2m = micros() - start_2m;   
 
@@ -205,38 +211,34 @@ void loop() {
 void print_data()
 {
 	//Test print:
-    Serial.println("VITALTRAC:");
-    Serial.println("=========");
-    Serial.println("");
-    Serial.println("Vital Data:");
-    Serial.println("-----------");
-    Serial.print("Core Body Temperature:  "); 
-    Serial.println(Tb_val);               // print core body temperature ever 1 minute.
+    Serial1.println("VITALTRAC:");
+    Serial1.println("=========");
+    Serial1.println("");
+    Serial1.println("Vital Data:");
+    Serial1.println("-----------");
+    Serial1.print("Core Body Temperature:  "); 
+    Serial1.println(Tb_val);               // print core body temperature ever 1 minute.
     delay(20);
-    Serial.print("BPM:                     ");
-    Serial.println(BPM_val);
-    delay(20);
-    Serial.print("HRV:                      ");
-    Serial.println(HRV_val);
-    delay(20);
-    Serial.print("SpO2:                    ");
-    Serial.println(SpO2_val);
-    delay(20);
-    Serial.print("RR:                         ");
-    Serial.println(RR_val);
+    Serial1.print("BPM:                     ");
+    Serial1.println(BPM_val);
+    // Serial1.print("HRV:                      ");
+    // Serial1.println(HRV_val);
+    // Serial1.print("SpO2:                    ");
+    // Serial1.println(SpO2_val);
     // delay(20);
-    // Serial.println("");
-    // Serial.println("EEG Data:");
-    // Serial.println("-----------");
+    // Serial1.print("RR:                         ");
+    // Serial1.println(RR_val);
+    // Serial1.println("");
+    // Serial1.println("EEG Data:");
+    // Serial1.println("-----------");
     // delay(20);
-    // Serial.print("Signal Strength:   ");
-    // Serial.println(signal_strength);
+    // Serial1.print("Signal Strength:   ");
+    // Serial1.println(signal_strength);
+    // Serial1.print("Attention:              ");
+    // Serial1.println(Attention);
     // delay(20);
-    // Serial.print("Attention:              ");
-    // Serial.println(Attention);
-    // delay(20);
-    // Serial.print("Meditation:           ");
-    // Serial.println(Meditation);
+    // Serial1.print("Meditation:           ");
+    // Serial1.println(Meditation);
 }
 
 // Function to get EEG values:
@@ -250,18 +252,18 @@ void EEG(int rec_time)
 	int Brain_prev = 0; 
 	int delta_EEG = 0;									// delta time of warm up
   	int start_EEG = micros();							// start time of warm up (1,5 second)
-  	while(delta_EEG <= rec_time)		
+  	while(delta_EEG < rec_time)		
   	{
 		// Expect packets about once per second:
-	    // "signal strength, attention, meditation, delta, theta, low alpha, high alpha, low beta, high beta, low gamma, high gamma"
+	    // "signal strength, attention, meditation, delta, theta, low alpha, high alpha, low beta, high beta, low gamma, high gamma
 	    brain.update();
 	    if (Brain_prev != brain.readDelta() && brain.readDelta() != 0) 
 	    {
 	        // Signal strength:
 	        Brain_prev = brain.readDelta();
 	        signal_strength = brain.readSignalQuality();	// 0 good signal , 200 poor signal
-	        Sum_Attention += brain.readAttention();           
-	        Sum_Meditation += brain.readMeditation(); 
+	        Attention = brain.readAttention();           
+	        Meditation = brain.readMeditation(); 
 
 	        i++;
 
@@ -275,8 +277,8 @@ void EEG(int rec_time)
 	    delta_EEG = micros() - start_EEG;					// delta time of warm up
 
 	    //Calculating average EEG value:
-	    Attention = Sum_Attention/Sum_size;
-	    Meditation = Sum_Meditation/Sum_size;
+	    //Attention = Sum_Attention/Sum_size;
+	    //Meditation = Sum_Meditation/Sum_size;
 	}
 }
 
@@ -335,9 +337,10 @@ void HR_SpO2_RR_HRV(int rec_time, bool RR_HRV)
 	uint16_t raw_RED_Val = 0;
 	int Expected_Peaks = ((rec_time - Warm_up)/1000000)*0.5;	//Expected beat peaks if heart rate is 30 bpm
 	// Recording required varabiles:
-	int IR_array_size = rec_time/5000;							// IR's size of array_.
-	int SSF_array_size = (rec_time-Warm_up)/5000;				// SSF's size of array_.
+	int IR_array_size = rec_time/20000;							// IR's size of array_.
+	int SSF_array_size = (rec_time-Warm_up)/20000;				// SSF's size of array_.
 	float IR_AC_array[IR_array_size];      						// IR signal AC array_.
+	int Signal_cap = 9;											// Cap signal can't go higher than 9.
 	//float SSF_output[SSF_array_size];           				// SSF output array_.  	int i = 0;                        
 	int i = 0;													// Counter
   	float IR_DC_val = 0;               							// DC value of the IR signal
@@ -359,7 +362,7 @@ void HR_SpO2_RR_HRV(int rec_time, bool RR_HRV)
         bool IR_DC = false;	//Return either DC value (true) or AC value (false)  
         IR_AC_array[i] = DCR_function_IR(raw_IR_Val, ALPHA_DCR, IR_DC);         //filter raw IR LED data through DC removal
         //Calculating AC RMS value: (only after 100 iterations - remove noise)
-        if (i > 300 && i <= 700)
+        if (i > 150 && i <= 300)
         {
           Sum_AC_IR += pow((IR_AC_array[i]),2);                                 //Sum of the IR AC signal value
         }
@@ -369,7 +372,7 @@ void HR_SpO2_RR_HRV(int rec_time, bool RR_HRV)
         //Get DC value from signal:
         IR_DC = true;
         IR_DC_val = DCR_function_IR(raw_IR_Val, ALPHA_DCR, IR_DC);        		//Get DC value from IR signal
-        if (i == 700)
+        if (i == 300)
         {
           IR_DC_val_SpO2 = IR_DC_val;
         }
@@ -380,14 +383,14 @@ void HR_SpO2_RR_HRV(int rec_time, bool RR_HRV)
         bool RED_DC = false;	//Return either DC value (true) or AC value (false)  
         float RED_AC_value = DCR_function_RED(raw_RED_Val, ALPHA_DCR, RED_DC); 	//filter raw RED LED data through DC removal
         //Calculating AC RMS value: (only after 50 iterations - remove noise)
-        if (i > 300 && i <= 700)
+        if (i > 150 && i <= 300)
         {
           Sum_AC_RED += pow((RED_AC_value),2);                               	//Sum of the RED AC signal value
         }
         //Get DC value from signal
         RED_DC = true;
         RED_DC_val = DCR_function_RED(raw_RED_Val, ALPHA_DCR, RED_DC);    		//Get DC value from RED signal
-        if (i == 700)
+        if (i == 300)
         {
           RED_DC_val_SpO2 = RED_DC_val;
         }
@@ -410,12 +413,12 @@ void HR_SpO2_RR_HRV(int rec_time, bool RR_HRV)
   	// Start data processing: 
 
   	// Slope Sum Function (SSF):
-    int window = 20;         								//length of analyzing window
+    int window = 10;         								//length of analyzing window
     int j = 0;               								//new counter
     float SSF = 0;           								//summation in window period
-    for (int i = 300; i < IR_array_size; i++)
+    for (int i = 125; i < IR_array_size; i++)
     {
-      if (i <= (window+300))
+      if (i <= (window+125))
       {
         IR_AC_array[j] = 0;
       }
@@ -427,13 +430,17 @@ void HR_SpO2_RR_HRV(int rec_time, bool RR_HRV)
           float delta_input = (IR_AC_array[i-window]) - (IR_AC_array[(i-window)-1]);
           if (delta_input > 0)
           {
-            SSF += delta_input;          
+            SSF += (delta_input);          
           }
+          //else 
+          //{
+          //	IR_AC_array[i] = 0;
+          //}
         }
         IR_AC_array[j] = SSF;
       } 
       //Test print:
-      //Serial.print(IR_AC_array[i]);
+      //Serial.print(IR_AC_array[j]);
       //Serial.print(",");
       //Serial.println(SSF_output[j]);
       //Serial.print(",");
@@ -441,6 +448,42 @@ void HR_SpO2_RR_HRV(int rec_time, bool RR_HRV)
       //HERE____SSF_swopped_IR_AC_array
       j++;
     }
+
+    // Filter signal (remove spikes in signal)
+    for (int i = 0; i < IR_array_size; i++)
+    {
+	   	if(IR_AC_array[i] >= Signal_cap)
+		{
+			IR_AC_array[i] = Signal_cap;
+			for(int j = 1; j <= 14; j++)
+			{
+				IR_AC_array[i+j] = 0;
+			}
+		}
+	}
+    for (int i = 1; i < IR_array_size; i++)
+    {
+    	if(IR_AC_array[i-1] <= 0.1 && IR_AC_array[i] >= 5 && IR_AC_array[i+1] <= 0.01)
+    	{
+    		IR_AC_array[i] = 0;
+    	}
+    }
+    // for (int i = 0; i < IR_array_size; i++)
+    // {
+    //   if(IR_AC_array[i-1] < IR_AC_array[i] && IR_AC_array[i] > IR_AC_array[i+1])
+    //   {
+    //   	for(int j = 0; j < 10; j++)
+    //   	{
+    //   		IR_AC_array[i+j+1] = 0;
+    //   	}
+    //   }
+    // } 
+
+    // Inhancing signal
+    // for (int i = 1; i < IR_array_size; i++)
+    // {
+    // 	IR_AC_array[i] = IR_AC_array[i]*10;
+    // }
     
     //Identifies the highest peaks of the of the number of expected peaks.
     float Beat_array[Expected_Peaks];     // Store detected peaks in array_
@@ -448,7 +491,7 @@ void HR_SpO2_RR_HRV(int rec_time, bool RR_HRV)
     bool Peak_detected = false;           // When a peak is detected it becomes true otherwise false
     for (int i = 0; i < SSF_array_size; i++)
     {
-      if(IR_AC_array[i-1] < IR_AC_array[i] && IR_AC_array[i] > IR_AC_array[i+1])
+      if(IR_AC_array[i-1] < IR_AC_array[i] && IR_AC_array[i] > IR_AC_array[i+1] )
       { 
         Peak = IR_AC_array[i];
         Peak_detected = true;
@@ -468,20 +511,31 @@ void HR_SpO2_RR_HRV(int rec_time, bool RR_HRV)
     }
     //Calculating threshold
     int Sum_beat_array = 0;                   //Total sum of the beat array_.
-    int threshold = 0;
+    float threshold = 0;
+    int counterfalse = 0;
     for(int i = 0; i < Expected_Peaks; i++)
     {
-      Sum_beat_array += Beat_array[i];        //Total
+    	if (Beat_array[i] != Signal_cap)
+    	{
+    		Sum_beat_array += Beat_array[i];        //Total
+    	}
+    	else
+    	{
+    		counterfalse++;
+    	}
     }
-    threshold = 0.65*(Sum_beat_array/Expected_Peaks);  //threshold value for beat detection
+    threshold = 0.8*(Sum_beat_array/(Expected_Peaks-counterfalse));  //threshold value for beat detection
 
     // Test print: 
-    // for(int i = 0; i < SSF_array_size; i++)
-    // {
-    //   Serial.print(SSF_output[i]);
-    //   Serial.print(",");
-    //   Serial.println(threshold);
-    // } 
+	for(int i = 0; i < SSF_array_size; i++)
+	{
+	  Serial.print(IR_AC_array[i]);
+	  Serial.print(",");
+	  Serial.println(threshold);
+	  //Serial.print(",");
+	  //Serial.println(i);
+	  delay(5);
+	} 
 
     // Counting the peaks to calculate BPM, RR and HRV:
     int Peak_count = 0;                   // Counter to count the number of peaks
@@ -517,10 +571,10 @@ void HR_SpO2_RR_HRV(int rec_time, bool RR_HRV)
     float refine_factor = 1;
     if (RR_HRV == true)
     {
-    	refine_factor = 1.06;												// Factor to refine BPM value
+    	refine_factor = 1;												// Factor to refine BPM value
     }else
     {
-    	refine_factor = 0.96;												// Factor to refine BPM value
+    	refine_factor = 1;												// Factor to refine BPM value
     }
     int Total_60s = End_delta*(60000000/(rec_time-Warm_up));                        // Taking the 5 seconds/ 30 seconds to 60 seconds
     int Avg_p2p_time = Sum_of_p2p_times/Peak_count;      							// Average peak to peak time in 5 second recording 
@@ -528,8 +582,8 @@ void HR_SpO2_RR_HRV(int rec_time, bool RR_HRV)
     BPM_val = BPM;
 
     // Calculating SpO2:
-    float RMS_AC_IR = sqrt(Sum_AC_IR/400);                     						// RMS of the IR AC signal
-    float RMS_AC_RED = sqrt(Sum_AC_RED/400);                   						// RMS of the RED AC signal
+    float RMS_AC_IR = sqrt(Sum_AC_IR/100);                     						// RMS of the IR AC signal
+    float RMS_AC_RED = sqrt(Sum_AC_RED/100);                   						// RMS of the RED AC signal
     float R = (RMS_AC_RED/RED_DC_val_SpO2)/(RMS_AC_IR/IR_DC_val_SpO2);    			// R value used to calculate Sp02
     float SpO2 = 110 - 25*R; 
     SpO2_val = SpO2;
