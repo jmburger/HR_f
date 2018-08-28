@@ -103,7 +103,7 @@ void setup() {
   	int recording_time_HR = 30000000 + Warm_up;			//Heart rate recording time
 	HR_SpO2_RR_HRV(recording_time_HR, true);
 	// On start up get EEG data:
-	int recording_time_EEG = 3000000;					//EEG recording time
+	int recording_time_EEG = 4000000;					//EEG recording time
 	EEG(recording_time_EEG);
 
 	// Print vital data:
@@ -126,8 +126,8 @@ void loop() {
 		int recording_time_HR = 8000000 + Warm_up;			//Heart rate recording time
 		HR_SpO2_RR_HRV(recording_time_HR, false);
 		Body_temperature();
-		//int recording_time_EEG = 2000000;					//EEG recording time
-		//EEG(recording_time_EEG);
+		int recording_time_EEG = 2000000;					//EEG recording time
+		EEG(recording_time_EEG);
 		print_data(); 
 
 	}
@@ -146,35 +146,161 @@ void loop() {
 	}
 	delta_2m = micros() - start_2m;   
 
+		
+}
+void print_data()
+{
+
+	//Heart Rate:
+	int HR_VS = 0;
+	if (BPM_val < 40)
+	{
+		HR_VS = 1;    //Low heart rate 
+	}
+	if (BPM_val >= 40 && BPM_val <= 100)
+	{
+		HR_VS = 2;    //Normal heart rate
+	}
+	if  (BPM_val > 100)
+	{
+		HR_VS = 3;    //High heart rate
+	}
+
+	//Heart Rate Variability:
+	int HRV_VS = 0;
+	if (HRV_val < 35 && HRV_val >= 0)
+	{
+		HRV_VS = 1;    //Low heart rate variability
+	}
+	if (HRV_val >= 35 && HRV_val <= 65)
+	{
+		HRV_VS = 2;    //Normal heart rate variability
+	}
+	if  (HRV_val > 65 && HRV_val <= 100)
+	{
+		HRV_VS = 3;    //High heart rate variability
+	}
+	else
+	{
+		HRV_VS = 4;
+	}
+
+	//Respiratory Rate:
+	int RR_VS = 0;
+	if (RR_val < 12)
+	{
+		RR_VS = 1;    //Low respiratory rate 
+	}
+	if (RR_val >= 12 && RR_val <= 20)
+	{
+		RR_VS = 2;    //Normal respiratory rate
+	}
+	if  (RR_val > 20)
+	{
+		RR_VS = 3;    //High respiratory rate
+	}
+
+	//SpO2:
+	int SpO2_VS = 0;
+	if (SpO2_val < 90 && SpO2_val >= 0)
+	{
+		SpO2_VS = 1;    //Low SpO2
+	}
+	if (SpO2_val >= 90 && SpO2_val <= 100)
+	{
+		SpO2_VS = 2;    //Normal SpO2
+	}
+	if  (SpO2_val > 100 && SpO2_val < 0)
+	{
+		SpO2_VS = 3;    //SpO2 ERROR
+	}
+
+	//Temperature: 
+	int Tb_VS = 0;
+	if (Tb_val <= 35)
+	{
+		Tb_VS = 1;    //Low core body temperature
+	}
+	if (Tb_val > 35 && Tb_val < 39)
+	{
+		Tb_VS = 2;    //Normal core body temperature
+	}
+	if  (Tb_val >= 39)
+	{
+		Tb_VS = 3;    //High core body temperature
+	}
+
+	//Test print:
+    Serial1.println("VITALTRAC:");
+    Serial1.println("=========");
+    Serial1.println("");
+    Serial1.println("Vital Data:");
+    Serial1.println("-----------");
+    Serial1.print("Core Body Temperature:  "); 
+    Serial1.println(Tb_val);               // print core body temperature ever 1 minute.
+    delay(20);
+    Serial1.print("BPM:                      ");
+    if (BPM_val < 240 && BPM_val > 0)
+    {
+    	Serial1.println(BPM_val);
+    }
+    else
+    {
+    	Serial1.println("Error");
+    }
+    Serial1.print("HRV:                      ");
+    Serial1.println(HRV_val);
+    if (HRV_val == 4)
+    {
+    	Serial1.println("Error");
+    }
+    Serial1.print("SpO2:                    ");
+    if (SpO2_val == 3)
+    {
+    	Serial1.println("Error");
+    }
+    Serial1.println(SpO2_val);
+    delay(20);
+    Serial1.print("RR:                         ");
+    Serial1.println(RR_val);
+    Serial1.println("");
+    Serial1.println("EEG Data:");
+	Serial1.println("-----------");
+	delay(20);
+	Serial1.print("Signal Strength:   ");
+	Serial1.println(signal_strength);
+	Serial1.print("Attention:              ");
+	Serial1.println(Attention);
+	delay(20);
+	Serial1.print("Meditation:           ");
+	Serial1.println(Meditation);
 
 	//Vital signs combinations:
-    // int VS_combinations = 0;
-    // Serial1.println("");
-    // Serial1.println("Condition:");
-    // Serial1.println("-----------");
-    // delay(20);
-    // Serial1.print("Symptoms of:   ");
-    // //Combination 1:
-    // if (HR_VS == 3 && HRV_VS == 1 && RR_VS == 1 && EEG_VS == * && SpO2_VS == 2 && Tb_VS == 3)
-    // {
-    //   //CHECK: EEG
-    //   VS_combinations = 1;
-    //   Serial1.print("Infection");
-    // }
-    // //Combination 2:
-    // if (HR_VS == 3 && HRV_VS == 2 && RR_VS == 3 && EEG_VS == * && SpO2_VS == 1 && Tb_VS == 3)
-    // {
-    //   //CHECK: Temperature: Slightly high, EEG
-    //   VS_combinations = 2;
-    //   Serial1.print("Pneumonia");
-    // }
-    // //Combination 3:
-    // if (HR_VS == 1 && HRV_VS == 3 && RR_VS == 2 && EEG_VS == * && SpO2_VS == 2 && Tb_VS == 2)
-    // {
-    //   //CHECK: EEG
-    //   VS_combinations = 3;
-    //   Serial1.print("Tired, please rest");
-    // }
+    int VS_combinations = 0;
+    Serial1.println("");
+    Serial1.println("Condition:");
+    Serial1.println("-----------");
+    delay(20);
+    Serial1.print("Symptoms of:   ");
+    //Combination 1:
+    if (HR_VS == 3 && HRV_VS == 1 && RR_VS == 1 && SpO2_VS == 2 && Tb_VS == 3)
+    {
+      VS_combinations = 1;
+      Serial1.print("Infection");
+    }
+    //Combination 2:
+    if (HR_VS == 3 && HRV_VS == 2 && RR_VS == 3 && SpO2_VS == 1 && Tb_VS == 3)
+    {
+      //CHECK: Temperature: Slightly high
+      VS_combinations = 2;
+      Serial1.print("Pneumonia");
+    }
+    //Combination 3:
+    //if (HR_VS == 1 && HRV_VS == 3 && RR_VS == 2 && EEG_VS == * && SpO2_VS == 2 && Tb_VS == 2)
+    //{
+    //  VS_combinations = 3;
+    //  Serial1.print("Tired, please rest");
+    //}
 
     // //Combination 4:
     // if (HR_VS == 2 && HRV_VS == 1 && RR_VS == 1 && EEG_VS == * && SpO2_VS == 2 && Tb_VS == 2)
@@ -200,45 +326,17 @@ void loop() {
     //   Serial1.print("Convultion");
     // }
 
-    // if(VS_combinations == 0)
-    // {
-    //  Serial1.println("Healthy"); 
-    // }			
-	
-
-
-}
-void print_data()
-{
-	//Test print:
-    Serial1.println("VITALTRAC:");
-    Serial1.println("=========");
-    Serial1.println("");
-    Serial1.println("Vital Data:");
-    Serial1.println("-----------");
-    Serial1.print("Core Body Temperature:  "); 
-    Serial1.println(Tb_val);               // print core body temperature ever 1 minute.
+    if(VS_combinations == 0)
+    {
+     Serial1.println("Healthy"); 
+    }
     delay(20);
-    Serial1.print("BPM:                     ");
-    Serial1.println(BPM_val);
-    // Serial1.print("HRV:                      ");
-    // Serial1.println(HRV_val);
-    // Serial1.print("SpO2:                    ");
-    // Serial1.println(SpO2_val);
-    // delay(20);
-    // Serial1.print("RR:                         ");
-    // Serial1.println(RR_val);
-    // Serial1.println("");
-    // Serial1.println("EEG Data:");
-    // Serial1.println("-----------");
-    // delay(20);
-    // Serial1.print("Signal Strength:   ");
-    // Serial1.println(signal_strength);
-    // Serial1.print("Attention:              ");
-    // Serial1.println(Attention);
-    // delay(20);
-    // Serial1.print("Meditation:           ");
-    // Serial1.println(Meditation);
+    Serial1.println("");
+    Serial1.println("");
+    Serial1.println("");
+    Serial1.println("");
+    Serial1.println("");
+    delay(20);
 }
 
 // Function to get EEG values:
@@ -319,7 +417,7 @@ void Body_temperature()
     Core_body_temp += 1.0 / (TEMPERATURENOMINAL + 273.15); 		// + (1/To)
     Core_body_temp = 1.0 / Core_body_temp;                 		// Invert
     Core_body_temp -= 273.15;                         			// convert to C 
-    Tb_val = Core_body_temp;
+    Tb_val = Core_body_temp + 2.5;
    
     //Test print:
     //Serial.print("Temperature "); 
@@ -340,7 +438,6 @@ void HR_SpO2_RR_HRV(int rec_time, bool RR_HRV)
 	int IR_array_size = rec_time/20000;							// IR's size of array_.
 	int SSF_array_size = (rec_time-Warm_up)/20000;				// SSF's size of array_.
 	float IR_AC_array[IR_array_size];      						// IR signal AC array_.
-	int Signal_cap = 9;											// Cap signal can't go higher than 9.
 	//float SSF_output[SSF_array_size];           				// SSF output array_.  	int i = 0;                        
 	int i = 0;													// Counter
   	float IR_DC_val = 0;               							// DC value of the IR signal
@@ -413,7 +510,7 @@ void HR_SpO2_RR_HRV(int rec_time, bool RR_HRV)
   	// Start data processing: 
 
   	// Slope Sum Function (SSF):
-    int window = 10;         								//length of analyzing window
+    int window = 6;         								//length of analyzing window
     int j = 0;               								//new counter
     float SSF = 0;           								//summation in window period
     for (int i = 125; i < IR_array_size; i++)
@@ -449,93 +546,68 @@ void HR_SpO2_RR_HRV(int rec_time, bool RR_HRV)
       j++;
     }
 
-    // Filter signal (remove spikes in signal)
-    for (int i = 0; i < IR_array_size; i++)
+    // Filter signal (remove spikes in signal - by capping the signal)
+    int Signal_cap = 8;											// Cap signal can't go higher than 9.
+    for (int i = 1; i < IR_array_size; i++)
     {
-	   	if(IR_AC_array[i] >= Signal_cap)
+    	// Remove sudden spikes:
+    	if(IR_AC_array[i-1] <= 0.01 && IR_AC_array[i] >= 5 && IR_AC_array[i+1] <= 0.01)
+    	{
+    		IR_AC_array[i] = 0;
+    	}
+    	if(IR_AC_array[i] >= Signal_cap)
 		{
 			IR_AC_array[i] = Signal_cap;
-			for(int j = 1; j <= 14; j++)
+			for (int j = 1; j <= 14; j++)
 			{
 				IR_AC_array[i+j] = 0;
 			}
 		}
-	}
-    for (int i = 1; i < IR_array_size; i++)
-    {
-    	if(IR_AC_array[i-1] <= 0.1 && IR_AC_array[i] >= 5 && IR_AC_array[i+1] <= 0.01)
-    	{
-    		IR_AC_array[i] = 0;
-    	}
     }
-    // for (int i = 0; i < IR_array_size; i++)
-    // {
-    //   if(IR_AC_array[i-1] < IR_AC_array[i] && IR_AC_array[i] > IR_AC_array[i+1])
-    //   {
-    //   	for(int j = 0; j < 10; j++)
-    //   	{
-    //   		IR_AC_array[i+j+1] = 0;
-    //   	}
-    //   }
-    // } 
-
-    // Inhancing signal
-    // for (int i = 1; i < IR_array_size; i++)
-    // {
-    // 	IR_AC_array[i] = IR_AC_array[i]*10;
-    // }
     
     //Identifies the highest peaks of the of the number of expected peaks.
-    float Beat_array[Expected_Peaks];     // Store detected peaks in array_
-    float Peak = 0;                       // Vale of peak detected
-    bool Peak_detected = false;           // When a peak is detected it becomes true otherwise false
+    float Value_of_Peak = 0;				// Value of peak detected
+    float Prev_value_of_peak = 0;			// Previous value of peak detected 
+    float Sum_of_Peak = 0;                  // Sum of peak detected
+    int Count_peaks = 0;					// Count peaks
+    int Prev_i = 0; 						// Previous i
     for (int i = 0; i < SSF_array_size; i++)
     {
-      if(IR_AC_array[i-1] < IR_AC_array[i] && IR_AC_array[i] > IR_AC_array[i+1] )
+      if(IR_AC_array[i-1] < IR_AC_array[i] && IR_AC_array[i] > IR_AC_array[i+1] && IR_AC_array[i] > 1 && IR_AC_array[i] != Signal_cap)
       { 
-        Peak = IR_AC_array[i];
-        Peak_detected = true;
-        for (int j = Expected_Peaks - 1; j >= 0; j--)
-        { 
-          if (Peak > Beat_array[j] && Peak_detected == true)
-          {
-            for(int p = 1; p <= j; p++)
-            {
-              Beat_array[p-1] = Beat_array[p];
-            }
-            Beat_array[j] = Peak;
-            Peak_detected = false;
-          }
-        }
-      } 
+      	Value_of_Peak = IR_AC_array[i];
+        Sum_of_Peak += IR_AC_array[i];
+        Count_peaks++;
+        if (i < Prev_i+14)
+	    {
+	      	if (Value_of_Peak > Prev_value_of_peak)
+	     	{
+	      		Sum_of_Peak -= Prev_value_of_peak;
+	      	}
+	      	else
+	      	{
+	      		Sum_of_Peak -= Value_of_Peak;
+	      	}
+	      	Count_peaks--;
+	    }
+        Prev_i = i;
+        Prev_value_of_peak = Value_of_Peak;
+      }
     }
+
     //Calculating threshold
-    int Sum_beat_array = 0;                   //Total sum of the beat array_.
-    float threshold = 0;
-    int counterfalse = 0;
-    for(int i = 0; i < Expected_Peaks; i++)
-    {
-    	if (Beat_array[i] != Signal_cap)
-    	{
-    		Sum_beat_array += Beat_array[i];        //Total
-    	}
-    	else
-    	{
-    		counterfalse++;
-    	}
-    }
-    threshold = 0.8*(Sum_beat_array/(Expected_Peaks-counterfalse));  //threshold value for beat detection
+    float threshold = 0.55*(Sum_of_Peak/Count_peaks);  //threshold value for beat detection
 
     // Test print: 
-	for(int i = 0; i < SSF_array_size; i++)
-	{
-	  Serial.print(IR_AC_array[i]);
-	  Serial.print(",");
-	  Serial.println(threshold);
+	//for(int i = 0; i < SSF_array_size; i++)
+	//{
+	  //Serial.print(IR_AC_array[i]);
+	  //Serial.print(",");
+	  //Serial.println(threshold);
 	  //Serial.print(",");
 	  //Serial.println(i);
-	  delay(5);
-	} 
+	  //delay(5);
+	//} 
 
     // Counting the peaks to calculate BPM, RR and HRV:
     int Peak_count = 0;                   // Counter to count the number of peaks
@@ -543,25 +615,34 @@ void HR_SpO2_RR_HRV(int rec_time, bool RR_HRV)
     int Sum_of_p2p_times = 0;             // sum of the times between peaks in the 5 second recording
     int Delta_p2p_time[110];              // Peak to peak delta time
     int Start_delta = 0;
+    Prev_i = 0;	   						  // Previous i
+    bool check = false;
     for(int i = 0; i < SSF_array_size; i++)
     {  
       if (IR_AC_array[i] > threshold)      											//Count peaks above threshold (beats) 
       {
         if(IR_AC_array[i-1] < IR_AC_array[i] && IR_AC_array[i] > IR_AC_array[i+1])    	//Peak detecting 
         {
-          Peak_count++;																//increment the peak counts 
+          Peak_count++;
+          if (i < Prev_i+14)
+          {
+          	Peak_count--;
+          	check = true;
+          }																//increment the peak counts 
           if (Peak_count == 1) 
           {
           	Start_delta = micros();           										// start of the total recording time
           }                                          
-          if (Peak_count > 1)
+          if (Peak_count > 1 && check == false)
           {
             Delta_p2p_time[Peak_count-2] = micros() - P2p_time_start;    			//delta time between peak to peak
             // Test print:
             //Serial1.println(Delta_p2p_time[Peak_count-2]);
             Sum_of_p2p_times += Delta_p2p_time[Peak_count-2];
           }
+		  check = false;
           P2p_time_start = micros();                       		 					//starting time of peak to peak
+          Prev_i = i;
         }
       }
     }
