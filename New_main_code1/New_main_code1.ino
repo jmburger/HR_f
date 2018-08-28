@@ -137,6 +137,8 @@ void loop() {
 	if(delta_2m >= 120000000)    
 	{
 		start_2m = micros();
+		// On start up do current balancing:
+  		Current_Balancing();	
 		int recording_time_HR = 30000000 + Warm_up;			//Heart rate recording time
 		HR_SpO2_RR_HRV(recording_time_HR, true);
 		Body_temperature();
@@ -202,15 +204,15 @@ void print_data()
 
 	//SpO2:
 	int SpO2_VS = 0;
-	if (SpO2_val < 90 && SpO2_val >= 0)
+	if (SpO2_val < 94 && SpO2_val >= 80)
 	{
 		SpO2_VS = 1;    //Low SpO2
 	}
-	if (SpO2_val >= 90 && SpO2_val <= 100)
+	if (SpO2_val >= 94 && SpO2_val <= 100)
 	{
 		SpO2_VS = 2;    //Normal SpO2
 	}
-	if  (SpO2_val > 100 && SpO2_val < 0)
+	else
 	{
 		SpO2_VS = 3;    //SpO2 ERROR
 	}
@@ -236,43 +238,50 @@ void print_data()
     Serial1.println("");
     Serial1.println("Vital Data:");
     Serial1.println("-----------");
-    Serial1.print("Core Body Temperature:  "); 
-    Serial1.println(Tb_val);               // print core body temperature ever 1 minute.
+    Serial1.print("Core Body Temperature: "); 
+    Serial1.print(Tb_val);               // print core body temperature ever 1 minute.
+    Serial1.println(" °C");
     delay(20);
-    Serial1.print("BPM:                      ");
+    Serial1.print("HR: ");
     if (BPM_val < 240 && BPM_val > 0)
     {
-    	Serial1.println(BPM_val);
+    	Serial1.print(BPM_val);
+    	Serial1.println(" bpm");
     }
     else
     {
     	Serial1.println("Error");
     }
-    Serial1.print("HRV:                      ");
+    Serial1.print("HRV: ");
     Serial1.println(HRV_val);
     if (HRV_val == 4)
     {
     	Serial1.println("Error");
     }
-    Serial1.print("SpO2:                    ");
+    Serial1.print("SpO2: ");
     if (SpO2_val == 3)
     {
     	Serial1.println("Error");
     }
-    Serial1.println(SpO2_val);
+    else
+    {
+    	Serial1.print(int(SpO2_val));
+    	Serial1.println(" %");
+    }	
     delay(20);
-    Serial1.print("RR:                         ");
-    Serial1.println(RR_val);
+    Serial1.print("RR: ");
+    Serial1.print(RR_val);
+    Serial1.println(" pm");
     Serial1.println("");
     Serial1.println("EEG Data:");
 	Serial1.println("-----------");
 	delay(20);
-	Serial1.print("Signal Strength:   ");
+	Serial1.print("Signal Strength: ");
 	Serial1.println(signal_strength);
-	Serial1.print("Attention:              ");
+	Serial1.print("Attention: ");
 	Serial1.println(Attention);
 	delay(20);
-	Serial1.print("Meditation:           ");
+	Serial1.print("Meditation: ");
 	Serial1.println(Meditation);
 
 	//Vital signs combinations:
@@ -281,7 +290,7 @@ void print_data()
     Serial1.println("Condition:");
     Serial1.println("-----------");
     delay(20);
-    Serial1.print("Symptoms of:   ");
+    Serial1.print("Symptoms of: ");
     //Combination 1:
     if (HR_VS == 3 && HRV_VS == 1 && RR_VS == 1 && SpO2_VS == 2 && Tb_VS == 3)
     {
@@ -459,7 +468,7 @@ void HR_SpO2_RR_HRV(int rec_time, bool RR_HRV)
         bool IR_DC = false;	//Return either DC value (true) or AC value (false)  
         IR_AC_array[i] = DCR_function_IR(raw_IR_Val, ALPHA_DCR, IR_DC);         //filter raw IR LED data through DC removal
         //Calculating AC RMS value: (only after 100 iterations - remove noise)
-        if (i > 150 && i <= 300)
+        if (i > 200 && i <= 250)
         {
           Sum_AC_IR += pow((IR_AC_array[i]),2);                                 //Sum of the IR AC signal value
         }
@@ -469,7 +478,7 @@ void HR_SpO2_RR_HRV(int rec_time, bool RR_HRV)
         //Get DC value from signal:
         IR_DC = true;
         IR_DC_val = DCR_function_IR(raw_IR_Val, ALPHA_DCR, IR_DC);        		//Get DC value from IR signal
-        if (i == 300)
+        if (i == 250)
         {
           IR_DC_val_SpO2 = IR_DC_val;
         }
@@ -480,14 +489,14 @@ void HR_SpO2_RR_HRV(int rec_time, bool RR_HRV)
         bool RED_DC = false;	//Return either DC value (true) or AC value (false)  
         float RED_AC_value = DCR_function_RED(raw_RED_Val, ALPHA_DCR, RED_DC); 	//filter raw RED LED data through DC removal
         //Calculating AC RMS value: (only after 50 iterations - remove noise)
-        if (i > 150 && i <= 300)
+        if (i > 200 && i <= 250)
         {
           Sum_AC_RED += pow((RED_AC_value),2);                               	//Sum of the RED AC signal value
         }
         //Get DC value from signal
         RED_DC = true;
         RED_DC_val = DCR_function_RED(raw_RED_Val, ALPHA_DCR, RED_DC);    		//Get DC value from RED signal
-        if (i == 300)
+        if (i == 250)
         {
           RED_DC_val_SpO2 = RED_DC_val;
         }
@@ -547,7 +556,7 @@ void HR_SpO2_RR_HRV(int rec_time, bool RR_HRV)
     }
 
     // Filter signal (remove spikes in signal - by capping the signal)
-    int Signal_cap = 8;											// Cap signal can't go higher than 9.
+    int Signal_cap = 12;											// Cap signal can't go higher than 9.
     for (int i = 1; i < IR_array_size; i++)
     {
     	// Remove sudden spikes:
@@ -599,15 +608,15 @@ void HR_SpO2_RR_HRV(int rec_time, bool RR_HRV)
     float threshold = 0.55*(Sum_of_Peak/Count_peaks);  //threshold value for beat detection
 
     // Test print: 
-	//for(int i = 0; i < SSF_array_size; i++)
-	//{
-	  //Serial.print(IR_AC_array[i]);
-	  //Serial.print(",");
-	  //Serial.println(threshold);
+	for(int i = 0; i < SSF_array_size; i++)
+	{
+	  Serial.print(IR_AC_array[i]);
+	  Serial.print(",");
+	  Serial.println(threshold);
 	  //Serial.print(",");
 	  //Serial.println(i);
 	  //delay(5);
-	//} 
+	} 
 
     // Counting the peaks to calculate BPM, RR and HRV:
     int Peak_count = 0;                   // Counter to count the number of peaks
@@ -663,10 +672,10 @@ void HR_SpO2_RR_HRV(int rec_time, bool RR_HRV)
     BPM_val = BPM;
 
     // Calculating SpO2:
-    float RMS_AC_IR = sqrt(Sum_AC_IR/100);                     						// RMS of the IR AC signal
-    float RMS_AC_RED = sqrt(Sum_AC_RED/100);                   						// RMS of the RED AC signal
+    float RMS_AC_IR = sqrt(Sum_AC_IR/50);                     						// RMS of the IR AC signal
+    float RMS_AC_RED = sqrt(Sum_AC_RED/50);                   						// RMS of the RED AC signal
     float R = (RMS_AC_RED/RED_DC_val_SpO2)/(RMS_AC_IR/IR_DC_val_SpO2);    			// R value used to calculate Sp02
-    float SpO2 = 110 - 25*R; 
+    float SpO2 = 110 - 17*R; 
     SpO2_val = SpO2;
 
     if (RR_HRV == true)
