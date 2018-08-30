@@ -75,6 +75,7 @@ int RR_val = 0;
 float HRV_val = 0;
 
 // Flags
+bool Prop_rec = true;       //Check to see if data was recorded properly if not redo recording.
 
 //timer requiremnts:
 int start_12s = 0;
@@ -85,23 +86,28 @@ int delta_2m = 0;
 void setup() {
 
 	// Start serial terminal:
-  	Serial.begin(57600);
-  	// Start the bluetooth serial.
-    Serial1.begin(57600);
+	Serial.begin(57600);
+	// Start the bluetooth serial.
+  Serial1.begin(57600);
 
-  	Serial1.println("VITALTRAC:");
-    Serial1.println("=========");
-    Serial1.println("");
-    Serial1.println("Warming Up.....");
-    Serial1.println("");
+	Serial1.println("VITALTRAC:");
+  Serial1.println("=========");
+  Serial1.println("");
+  Serial1.println("Warming Up.....");
+  Serial1.println("");
 
-  	// On start up do current balancing:
-  	Current_Balancing();	
-  	// On start up get body temperature:				
-  	Body_temperature();	
-  	// On start up get HR SpO2 RR HRV:
-  	int recording_time_HR = 30000000 + Warm_up;			//Heart rate recording time
+	// On start up do current balancing:
+	Current_Balancing();	
+	// On start up get body temperature:				
+	Body_temperature();	
+	// On start up get HR SpO2 RR HRV:
+	int recording_time_HR = 30000000 + Warm_up;			//Heart rate recording time
 	HR_SpO2_RR_HRV(recording_time_HR, true);
+  while (Prop_rec == false)
+  {
+    print_data();
+    HR_SpO2_RR_HRV(recording_time_HR, true);
+  }
 	// On start up get EEG data:
 	int recording_time_EEG = 4000000;					//EEG recording time
 	EEG(recording_time_EEG);
@@ -110,7 +116,7 @@ void setup() {
 	print_data();
 
 	//Start timers:
-	start_12s = micros();
+	//start_12s = micros();
 	start_2m = micros();
 }
 
@@ -124,7 +130,12 @@ void loop() {
 	{
 		start_12s = micros();
 		int recording_time_HR = 8000000 + Warm_up;			//Heart rate recording time
-		HR_SpO2_RR_HRV(recording_time_HR, false);
+    HR_SpO2_RR_HRV(recording_time_HR, false);
+    while (Prop_rec == false)
+    {
+      print_data();
+      HR_SpO2_RR_HRV(recording_time_HR, false);
+    }
 		Body_temperature();
 		int recording_time_EEG = 2000000;					//EEG recording time
 		EEG(recording_time_EEG);
@@ -141,8 +152,13 @@ void loop() {
   		Current_Balancing();	
 		int recording_time_HR = 30000000 + Warm_up;			//Heart rate recording time
 		HR_SpO2_RR_HRV(recording_time_HR, true);
+    while (Prop_rec == false)
+    {
+      print_data();
+      HR_SpO2_RR_HRV(recording_time_HR, true);
+    }
 		Body_temperature();
-		int recording_time_EEG = 2000000;					//EEG recording time
+		int recording_time_EEG = 3000000;					//EEG recording time
 		EEG(recording_time_EEG);
 		print_data();   			
 	}
@@ -233,11 +249,21 @@ void print_data()
 	}
 
 	//Test print:
-    Serial1.println("VITALTRAC:");
-    Serial1.println("=========");
+  Serial1.println("VITALTRAC:");
+  Serial1.println("=========");
+  Serial1.println("");
+  Serial1.println("Vital Data:");
+  Serial1.println("-----------");
+  if (Prop_rec == false)
+  {
     Serial1.println("");
-    Serial1.println("Vital Data:");
-    Serial1.println("-----------");
+    Serial1.println("Error occured busy rerecording...");
+    Serial1.println("");
+    Serial1.println("");
+  }
+  else
+  {
+
     Serial1.print("Core Body Temperature: "); 
     Serial1.print(Tb_val);               // print core body temperature ever 1 minute.
     Serial1.println(" °C");
@@ -245,46 +271,46 @@ void print_data()
     Serial1.print("HR: ");
     if (BPM_val < 240 && BPM_val > 0)
     {
-    	Serial1.print(BPM_val);
-    	Serial1.println(" bpm");
+      Serial1.print(BPM_val);
+      Serial1.println(" bpm");
     }
     else
     {
-    	Serial1.println("Error");
+      Serial1.println("Error");
     }
     Serial1.print("HRV: ");
     Serial1.println(HRV_val);
     if (HRV_val == 4)
     {
-    	Serial1.println("Error");
+      Serial1.println("Error");
     }
     Serial1.print("SpO2: ");
-    if (SpO2_val == 3)
+    if (SpO2_VS == 3)
     {
-    	Serial1.println("Error");
+      Serial1.println("Error");
     }
     else
     {
-    	Serial1.print(int(SpO2_val));
-    	Serial1.println(" %");
-    }	
+      Serial1.print(int(SpO2_val));
+      Serial1.println(" %");
+    } 
     delay(20);
     Serial1.print("RR: ");
     Serial1.print(RR_val);
     Serial1.println(" pm");
     Serial1.println("");
     Serial1.println("EEG Data:");
-	Serial1.println("-----------");
-	delay(20);
-	Serial1.print("Signal Strength: ");
-	Serial1.println(signal_strength);
-	Serial1.print("Attention: ");
-	Serial1.println(Attention);
-	delay(20);
-	Serial1.print("Meditation: ");
-	Serial1.println(Meditation);
+    Serial1.println("-----------");
+    delay(20);
+    Serial1.print("Signal Strength: ");
+    Serial1.println(signal_strength);
+    Serial1.print("Attention: ");
+    Serial1.println(Attention);
+    delay(20);
+    Serial1.print("Meditation: ");
+    Serial1.println(Meditation);
 
-	//Vital signs combinations:
+  //Vital signs combinations:
     int VS_combinations = 0;
     Serial1.println("");
     Serial1.println("Condition:");
@@ -346,6 +372,8 @@ void print_data()
     Serial1.println("");
     Serial1.println("");
     delay(20);
+  }
+
 }
 
 // Function to get EEG values:
@@ -358,34 +386,34 @@ void EEG(int rec_time)
 	uint8_t Sum_Meditation;								// Meditation
 	int Brain_prev = 0; 
 	int delta_EEG = 0;									// delta time of warm up
-  	int start_EEG = micros();							// start time of warm up (1,5 second)
-  	while(delta_EEG < rec_time)		
-  	{
-		// Expect packets about once per second:
-	    // "signal strength, attention, meditation, delta, theta, low alpha, high alpha, low beta, high beta, low gamma, high gamma
-	    brain.update();
-	    if (Brain_prev != brain.readDelta() && brain.readDelta() != 0) 
-	    {
-	        // Signal strength:
-	        Brain_prev = brain.readDelta();
-	        signal_strength = brain.readSignalQuality();	// 0 good signal , 200 poor signal
-	        Attention = brain.readAttention();           
-	        Meditation = brain.readMeditation(); 
+	int start_EEG = micros();							// start time of warm up (1,5 second)
+	while(delta_EEG < rec_time)		
+	{
+	// Expect packets about once per second:
+    // "signal strength, attention, meditation, delta, theta, low alpha, high alpha, low beta, high beta, low gamma, high gamma
+    brain.update();
+    if (Brain_prev != brain.readDelta() && brain.readDelta() != 0) 
+    {
+        // Signal strength:
+        Brain_prev = brain.readDelta();
+        signal_strength = brain.readSignalQuality();	// 0 good signal , 200 poor signal
+        Attention = brain.readAttention();           
+        Meditation = brain.readMeditation(); 
 
-	        i++;
+        i++;
 
-	        //Test print bluetooth serial:
-	        //Serial.print(signal_strength);
-	        //Serial.print(",");
-	        //Serial.print(attention);
-	        //Serial.print(",");
-	        //Serial.println(meditation);
-	    }	
-	    delta_EEG = micros() - start_EEG;					// delta time of warm up
+        //Test print bluetooth serial:
+        //Serial.print(signal_strength);
+        //Serial.print(",");
+        //Serial.print(attention);
+        //Serial.print(",");
+        //Serial.println(meditation);
+    }	
+    delta_EEG = micros() - start_EEG;					// delta time of warm up
 
-	    //Calculating average EEG value:
-	    //Attention = Sum_Attention/Sum_size;
-	    //Meditation = Sum_Meditation/Sum_size;
+    //Calculating average EEG value:
+    //Attention = Sum_Attention/Sum_size;
+    //Meditation = Sum_Meditation/Sum_size;
 	}
 }
 
@@ -394,44 +422,44 @@ void Body_temperature()
 {
 	// Required variables:
 	uint8_t i;
-    float average;
+  float average;
+
+  // take N samples in a row, with a slight delay
+  for (i=0; i< NUMSAMPLES; i++) {
+   samples[i] = analogRead(THERMISTORPIN);
+   delay(10);
+   //Serial.println(samples[i]);    //test print
+  }
+  
+  // average all the samples out
+  average = 0;
+  for (i=0; i< NUMSAMPLES; i++) {
+     average += samples[i];
+  }
+  average /= NUMSAMPLES;
  
-    // take N samples in a row, with a slight delay
-    for (i=0; i< NUMSAMPLES; i++) {
-     samples[i] = analogRead(THERMISTORPIN);
-     delay(10);
-     //Serial.println(samples[i]);    //test print
-    }
-    
-    // average all the samples out
-    average = 0;
-    for (i=0; i< NUMSAMPLES; i++) {
-       average += samples[i];
-    }
-    average /= NUMSAMPLES;
-   
-    //Test print:
-    //Serial.print("Average analog reading "); 
-    //Serial.println(average);
-    // convert the value to resistance
-    average = 1023 / average - 1;
-    average = SERIESRESISTOR / average;
-    //Test print:
-    //Serial.print("Thermistor resistance "); 
-    //Serial.println(average);
-   
-    Core_body_temp = average / THERMISTORNOMINAL;     			// (R/Ro)
-    Core_body_temp = log(Core_body_temp);                  		// ln(R/Ro)
-    Core_body_temp /= BCOEFFICIENT;                   			// 1/B * ln(R/Ro)
-    Core_body_temp += 1.0 / (TEMPERATURENOMINAL + 273.15); 		// + (1/To)
-    Core_body_temp = 1.0 / Core_body_temp;                 		// Invert
-    Core_body_temp -= 273.15;                         			// convert to C 
-    Tb_val = Core_body_temp + 2.5;
-   
-    //Test print:
-    //Serial.print("Temperature "); 
-    //Serial.print(Core_body_temp);
-    //Serial.println(" *C");	
+  //Test print:
+  //Serial.print("Average analog reading "); 
+  //Serial.println(average);
+  // convert the value to resistance
+  average = 1023 / average - 1;
+  average = SERIESRESISTOR / average;
+  //Test print:
+  //Serial.print("Thermistor resistance "); 
+  //Serial.println(average);
+ 
+  Core_body_temp = average / THERMISTORNOMINAL;     			// (R/Ro)
+  Core_body_temp = log(Core_body_temp);                  		// ln(R/Ro)
+  Core_body_temp /= BCOEFFICIENT;                   			// 1/B * ln(R/Ro)
+  Core_body_temp += 1.0 / (TEMPERATURENOMINAL + 273.15); 		// + (1/To)
+  Core_body_temp = 1.0 / Core_body_temp;                 		// Invert
+  Core_body_temp -= 273.15;                         			// convert to C 
+  Tb_val = Core_body_temp + 2;
+ 
+  //Test print:
+  //Serial.print("Temperature "); 
+  //Serial.print(Core_body_temp);
+  //Serial.println(" *C");	
 }
 
 // Function to get HR, SpO2, RR, HRV values:
@@ -445,19 +473,19 @@ void HR_SpO2_RR_HRV(int rec_time, bool RR_HRV)
 	int Expected_Peaks = ((rec_time - Warm_up)/1000000)*0.5;	//Expected beat peaks if heart rate is 30 bpm
 	// Recording required varabiles:
 	int IR_array_size = rec_time/20000;							// IR's size of array_.
-	int SSF_array_size = (rec_time-Warm_up)/20000;				// SSF's size of array_.
+	int SSF_array_size = ((rec_time-Warm_up)/20000);				// SSF's size of array_.
 	float IR_AC_array[IR_array_size];      						// IR signal AC array_.
 	//float SSF_output[SSF_array_size];           				// SSF output array_.  	int i = 0;                        
 	int i = 0;													// Counter
-  	float IR_DC_val = 0;               							// DC value of the IR signal
-  	float RED_DC_val = 0;              							// DC value of the RED signal
-  	float IR_DC_val_SpO2 = 0;          							// DC value of the IR signal for SpO2 calculation
-  	float RED_DC_val_SpO2 = 0;         							// DC value of the RED signal for SpO2 calculation
-  	float Sum_AC_IR = 0;               							// Sum of the IR AC signal value
-  	float Sum_AC_RED = 0;              							// Sum of the RED AC signal value
-  	int delta_rec = 0;				      						// delta time between current and start time
-  	int start_rec = micros();		  							// start record time
-  	// while loop to record 5 seconds of data:
+	float IR_DC_val = 0;               							// DC value of the IR signal
+	float RED_DC_val = 0;              							// DC value of the RED signal
+	float IR_DC_val_SpO2 = 0;          							// DC value of the IR signal for SpO2 calculation
+	float RED_DC_val_SpO2 = 0;         							// DC value of the RED signal for SpO2 calculation
+	float Sum_AC_IR = 0;               							// Sum of the IR AC signal value
+	float Sum_AC_RED = 0;              							// Sum of the RED AC signal value
+	int delta_rec = 0;				      						// delta time between current and start time
+	int start_rec = micros();		  							// start record time
+	// while loop to record 5 seconds of data:
 	while(delta_rec <= rec_time)
     {
       // if raw data is available 
@@ -524,7 +552,7 @@ void HR_SpO2_RR_HRV(int rec_time, bool RR_HRV)
     float SSF = 0;           								//summation in window period
     for (int i = 125; i < IR_array_size; i++)
     {
-      if (i <= (window+125))
+      if (i <= (125))
       {
         IR_AC_array[j] = 0;
       }
@@ -556,8 +584,9 @@ void HR_SpO2_RR_HRV(int rec_time, bool RR_HRV)
     }
 
     // Filter signal (remove spikes in signal - by capping the signal)
-    int Signal_cap = 12;											// Cap signal can't go higher than 9.
-    for (int i = 1; i < IR_array_size; i++)
+    int Signal_cap = 30;											// Cap signal can't go higher than 9.
+    int count_cap_reached = 0;                // count the amount of times the signal cap has been reached
+    for (int i = 1; i < SSF_array_size; i++)
     {
     	// Remove sudden spikes:
     	if(IR_AC_array[i-1] <= 0.01 && IR_AC_array[i] >= 5 && IR_AC_array[i+1] <= 0.01)
@@ -565,15 +594,25 @@ void HR_SpO2_RR_HRV(int rec_time, bool RR_HRV)
     		IR_AC_array[i] = 0;
     	}
     	if(IR_AC_array[i] >= Signal_cap)
-		{
-			IR_AC_array[i] = Signal_cap;
-			for (int j = 1; j <= 14; j++)
-			{
-				IR_AC_array[i+j] = 0;
-			}
-		}
+		  {
+			 IR_AC_array[i] = Signal_cap;
+       count_cap_reached++;
+    	 // for (int j = 1; j <= 14; j++)
+    	 // {
+    	 //   IR_AC_array[i+j] = 0;
+    	 // }
+		  }
     }
-    
+    // Check if a clean signal was recorded:
+    if(count_cap_reached >= 1)
+    {
+      Prop_rec = false;
+    }
+    else 
+    {
+      Prop_rec = true;
+    }
+
     //Identifies the highest peaks of the of the number of expected peaks.
     float Value_of_Peak = 0;				// Value of peak detected
     float Prev_value_of_peak = 0;			// Previous value of peak detected 
@@ -605,18 +644,18 @@ void HR_SpO2_RR_HRV(int rec_time, bool RR_HRV)
     }
 
     //Calculating threshold
-    float threshold = 0.55*(Sum_of_Peak/Count_peaks);  //threshold value for beat detection
+    float threshold = 0.5*(Sum_of_Peak/Count_peaks);  //threshold value for beat detection
 
     // Test print: 
-	for(int i = 0; i < SSF_array_size; i++)
-	{
-	  Serial.print(IR_AC_array[i]);
-	  Serial.print(",");
-	  Serial.println(threshold);
+	//for(int i = 0; i < SSF_array_size; i++)
+	//{
+	  //Serial.print(IR_AC_array[i]);
+	  //Serial.print(",");
+	  //Serial.println(threshold);
 	  //Serial.print(",");
 	  //Serial.println(i);
 	  //delay(5);
-	} 
+	//} 
 
     // Counting the peaks to calculate BPM, RR and HRV:
     int Peak_count = 0;                   // Counter to count the number of peaks
@@ -649,7 +688,7 @@ void HR_SpO2_RR_HRV(int rec_time, bool RR_HRV)
             //Serial1.println(Delta_p2p_time[Peak_count-2]);
             Sum_of_p2p_times += Delta_p2p_time[Peak_count-2];
           }
-		  check = false;
+		      check = false;
           P2p_time_start = micros();                       		 					//starting time of peak to peak
           Prev_i = i;
         }
@@ -661,7 +700,7 @@ void HR_SpO2_RR_HRV(int rec_time, bool RR_HRV)
     float refine_factor = 1;
     if (RR_HRV == true)
     {
-    	refine_factor = 1;												// Factor to refine BPM value
+    	refine_factor = 1.08;												// Factor to refine BPM value
     }else
     {
     	refine_factor = 1;												// Factor to refine BPM value
@@ -723,51 +762,51 @@ void Current_Balancing()
 	uint16_t raw_IR_Val = 0;
 	uint16_t raw_RED_Val = 0;
 	MAX30100_Startup();										// start-up the MAX30100 sensor
-  	// Warm Up:
-  	int delta_warmup = 0;									// delta time of warm up
-  	int start_warmup = micros();							// start time of warm up (1,5 second)
-  	while(delta_warmup <= Warm_up)		
-  	{
-     	MAX30100_sensor.update();   						// Update sensor
-  		delta_warmup = micros() - start_warmup;				// delta time of warm up
-  	}
+	// Warm Up:
+	int delta_warmup = 0;									// delta time of warm up
+	int start_warmup = micros();							// start time of warm up (1,5 second)
+	while(delta_warmup <= Warm_up)		
+	{
+   	MAX30100_sensor.update();   						// Update sensor
+		delta_warmup = micros() - start_warmup;				// delta time of warm up
+	}
 	int delta_5s = 0;										// delta time between current and start time
-  	int start_5s = micros();								// start 5 second current balancing
-  	while(delta_5s <= 5000000)
+	int start_5s = micros();								// start 5 second current balancing
+	while(delta_5s <= 5000000)
+	{
+		delta_5s = micros() - start_5s; 					// delta time calculation 3 seconds
+		// if raw data is available 
+		MAX30100_sensor.update();																				// Update sensor
+  	if (MAX30100_sensor.getRawValues(&raw_IR_Val, &raw_RED_Val))
   	{
-  		delta_5s = micros() - start_5s; 					// delta time calculation 3 seconds
-  		// if raw data is available 
-  		MAX30100_sensor.update();																				// Update sensor
-    	if (MAX30100_sensor.getRawValues(&raw_IR_Val, &raw_RED_Val))
-    	{
-  	    	//Get DC value from IR signal:
-  			bool IR_DC = true;																					//Return either DC value (true) or AC value (false)
-  			float IR_DC_val = DCR_function_IR(raw_IR_Val, ALPHA_DCR, IR_DC);       								//Get DC value from IR signal
+	    	//Get DC value from IR signal:
+			bool IR_DC = true;																					//Return either DC value (true) or AC value (false)
+			float IR_DC_val = DCR_function_IR(raw_IR_Val, ALPHA_DCR, IR_DC);       								//Get DC value from IR signal
 
-  	    	//Get DC value from RED signal:
-  			bool RED_DC = true; 																				//Return either DC value (true) or AC value (false)
-  	    	float RED_DC_val = DCR_function_RED(raw_RED_Val, ALPHA_DCR, RED_DC);    							//Get DC value from RED signal
-  	
-  	    	//RED and IR DC current balancing:
-  			if (IR_DC_val - RED_DC_val > ACCEPTABLE_CURRENT_DIFF && RED_current < MAX30100_LED_CURR_50MA)
-  			{
-    			counter++;
-    			RED_current = LEDCurrent_array[counter];          			              						//change RED LED's current
-    			MAX30100_sensor.setLedsCurrent(IR_current, RED_current);   	          							//Set led's current IR and Red respectively
-    		}
-  			if (RED_DC_val - IR_DC_val > ACCEPTABLE_CURRENT_DIFF && RED_current > 0)
-  			{
-    			counter--;
-    			RED_current = LEDCurrent_array[counter];          			              						//change RED LED's current
-    			MAX30100_sensor.setLedsCurrent(IR_current, RED_current);   	          							//Set led's current IR and Red respectively
-    		}
-    		// Test print: 
-  			//Serial1.print(RED_DC_val); 
-  			//Serial1.print(" , ");
-  			//Serial1.println(IR_DC_val);
+	    	//Get DC value from RED signal:
+			bool RED_DC = true; 																				//Return either DC value (true) or AC value (false)
+	    	float RED_DC_val = DCR_function_RED(raw_RED_Val, ALPHA_DCR, RED_DC);    							//Get DC value from RED signal
+	
+	    	//RED and IR DC current balancing:
+			if (IR_DC_val - RED_DC_val > ACCEPTABLE_CURRENT_DIFF && RED_current < MAX30100_LED_CURR_50MA)
+			{
+  			counter++;
+  			RED_current = LEDCurrent_array[counter];          			              						//change RED LED's current
+  			MAX30100_sensor.setLedsCurrent(IR_current, RED_current);   	          							//Set led's current IR and Red respectively
   		}
-  	}
-  	MAX30100_sensor.shutdown();								// Shutdown MAX30100 sensor
+			if (RED_DC_val - IR_DC_val > ACCEPTABLE_CURRENT_DIFF && RED_current > 0)
+			{
+  			counter--;
+  			RED_current = LEDCurrent_array[counter];          			              						//change RED LED's current
+  			MAX30100_sensor.setLedsCurrent(IR_current, RED_current);   	          							//Set led's current IR and Red respectively
+  		}
+  		// Test print: 
+			//Serial1.print(RED_DC_val); 
+			//Serial1.print(" , ");
+			//Serial1.println(IR_DC_val);
+		}
+	}
+	MAX30100_sensor.shutdown();								// Shutdown MAX30100 sensor
 }
 
 // MAX30100 sensor start up:
@@ -776,17 +815,17 @@ void MAX30100_Startup()
   //Serial1.print("Initializing MAX30100..");
   // Initialize the sensor
   // Failures are generally due to an improper I2C wiring, missing power supply or wrong target chip
-  	if (!MAX30100_sensor.begin()) {
-    	Serial1.println("FAILED");
-    	for (;;);
-  	}
-  	//Serial1.println("MAX30100 HR and SpO2 Sensor");
-  	MAX30100_sensor.setMode(MAX30100_MODE_SPO2_HR);          //setting sensor mode (HR and SpO2)
-  	MAX30100_sensor.setLedsCurrent(IR_current, RED_current); //Set led's current IR and Red respectively
-  	MAX30100_sensor.setLedsPulseWidth(Pulse_width);          //Set led's pulse width
-  	MAX30100_sensor.setSamplingRate(Sample_Rate);            //set sample rate
-  	MAX30100_sensor.setHighresModeEnabled(Highres_mode);     //set high resolution
-  	MAX30100_sensor.resetFifo();                             //rest fifo register 
+	if (!MAX30100_sensor.begin()) {
+  	Serial1.println("FAILED");
+  	for (;;);
+	}
+	//Serial1.println("MAX30100 HR and SpO2 Sensor");
+	MAX30100_sensor.setMode(MAX30100_MODE_SPO2_HR);          //setting sensor mode (HR and SpO2)
+	MAX30100_sensor.setLedsCurrent(IR_current, RED_current); //Set led's current IR and Red respectively
+	MAX30100_sensor.setLedsPulseWidth(Pulse_width);          //Set led's pulse width
+	MAX30100_sensor.setSamplingRate(Sample_Rate);            //set sample rate
+	MAX30100_sensor.setHighresModeEnabled(Highres_mode);     //set high resolution
+	MAX30100_sensor.resetFifo();                             //rest fifo register 
 }
 
 // DC Removeral filter for Heart Rate (HR)
