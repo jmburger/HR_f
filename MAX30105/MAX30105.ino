@@ -9,7 +9,7 @@
 MAX30105 MAX30105_sensor;
 
 //Current Balancing:
-//#define ACCEPTABLE_CURRENT_DIFF   2500  // Acceptable current difference between RED current and IR current
+#define ACCEPTABLE_CURRENT_DIFF   2500  // Acceptable current difference between RED current and IR current
 //int counter = 8;						// Current array_ counter
 //Filter Variables
 //DC Removal variable:
@@ -54,7 +54,7 @@ int delta_2m = 0;
 void setup() {
 
 	// Start serial terminal:
-	Serial.begin(57600);
+	Serial.begin(115200);
 
 	Serial.println("INFANT MONITOR:");
   Serial.println("=========");
@@ -66,24 +66,25 @@ void setup() {
   // MAX30105 Warm Up:
   int recording_time = 4500000;     //Heart rate recording time
   int array_size = 225;
-  HR_SpO2_RR_HRV(recording_time, array_size, true); 
+  HR_SpO2_RR_HRV_Tb(recording_time, array_size, true); 
   //------------------
 
   // Calculate Initial Values:
 	// Do current balancing:
 	//Current_Balancing();	
-	// Get body temperature:				
-	//Body_temperature();	
+	
 	// Get HR SpO2 RR HRV:
 	recording_time = 30000000;			//Heart rate recording time
   array_size = 2390;
-	HR_SpO2_RR_HRV(recording_time, array_size, true);
+	HR_SpO2_RR_HRV_Tb(recording_time, array_size, true);
   while (Prop_rec == false)
   {
-    print_data();
-    HR_SpO2_RR_HRV(recording_time, array_size, true);
+    //print_data();
+    HR_SpO2_RR_HRV_Tb(recording_time, array_size, true);
   }
 
+  // Get body temperature:        
+  //Body_temperature_thermistor();
 	// Print vital data:
 	print_data();
 
@@ -100,13 +101,13 @@ void loop() {
 		start_12s = micros();
 		int recording_time_HR = 8000000;			//Heart rate recording time
     int array_size = 630;
-    HR_SpO2_RR_HRV(recording_time_HR, array_size, false);
+    HR_SpO2_RR_HRV_Tb(recording_time_HR, array_size, false);
     while (Prop_rec == false)
     {
       print_data();
-      HR_SpO2_RR_HRV(recording_time_HR, array_size, false);
+      HR_SpO2_RR_HRV_Tb(recording_time_HR, array_size, false);
     }
-		//Body_temperature();
+		//Body_temperature_thermistor();
 		print_data(); 
 
 	}
@@ -120,13 +121,13 @@ void loop() {
   	//Current_Balancing();	
 		int recording_time_HR = 30000000;			//Heart rate recording time
     int array_size = 2390;
-		HR_SpO2_RR_HRV(recording_time_HR, array_size, true);
+		HR_SpO2_RR_HRV_Tb(recording_time_HR, array_size, true);
     while (Prop_rec == false)
     {
       print_data();
-      HR_SpO2_RR_HRV(recording_time_HR, array_size, true);
+      HR_SpO2_RR_HRV_Tb(recording_time_HR, array_size, true);
     }
-		//Body_temperature();
+		//Body_temperature_thermistor();
 		print_data();   			
 	}
 	delta_2m = micros() - start_2m;   
@@ -182,11 +183,11 @@ void print_data()
       Serial.println(" %");
     } 
     delay(20);
-    Serial.print("RR: ");
-    Serial.print(RR_val);
-    Serial.println(" pm");
-    Serial.println("");
-    delay(20);
+    // Serial.print("RR: ");
+    // Serial.print(RR_val);
+    // Serial.println(" pm");
+    // Serial.println("");
+    // delay(20);
     Serial.println("");
     Serial.println("");
     Serial.println("");
@@ -198,7 +199,7 @@ void print_data()
 }
 
 // Function to get core body temperature:
-void Body_temperature()
+void Body_temperature_thermistor()
 {
 	// Required variables:
 	uint8_t i;
@@ -243,7 +244,7 @@ void Body_temperature()
 }
 
 // Function to get HR, SpO2, RR, HRV values:
-void HR_SpO2_RR_HRV(int rec_time, int array_size, bool RR_HRV)
+void HR_SpO2_RR_HRV_Tb(int rec_time, int array_size, bool RR_HRV)
 {
 	// start-up the MAX30105 sensor
 	MAX30105_Startup();	
@@ -275,8 +276,12 @@ void HR_SpO2_RR_HRV(int rec_time, int array_size, bool RR_HRV)
     // if raw data is available 
     while (MAX30105_sensor.available() == false) //do we have new data
     MAX30105_sensor.check();                     //chech for new data
+    //Get IR and Red raw data:
     raw_IR_Val = MAX30105_sensor.getIR();
     raw_RED_Val = MAX30105_sensor.getRed();
+    // Get Temperature:
+    float Core_body_T = MAX30105_sensor.readTemperature();
+    Tb_val = Core_body_T;
     MAX30105_sensor.nextSample();  // Finished with this sample so move to next sample
     // Test Print:
     // Serial.print(raw_IR_Val);
@@ -333,6 +338,11 @@ void HR_SpO2_RR_HRV(int rec_time, int array_size, bool RR_HRV)
     
     delta_rec = micros() - start_rec;						// delta time calculation 30 seconds 
 	}
+
+  // Get Temperature:
+  float Core_body_T = MAX30105_sensor.readTemperature();
+  Tb_val = Core_body_T;
+
 	// Shut down MAX30105 sensor:
 	MAX30105_sensor.shutDown();       						// Shutdown MAX30105 sensor
 	// Start data processing: 
@@ -533,58 +543,62 @@ void HR_SpO2_RR_HRV(int rec_time, int array_size, bool RR_HRV)
 }
 
 // Balance IR and RED currents:
-// void Current_Balancing()
-// {
-// 	//Variables store raw RED and IR values
-// 	uint16_t raw_IR_Val = 0;
-// 	uint16_t raw_RED_Val = 0;
-// 	MAX30105_Startup();										// start-up the MAX30105 sensor
-// 	// Warm Up:
-// 	int delta_warmup = 0;									// delta time of warm up
-// 	int start_warmup = micros();							// start time of warm up (1,5 second)
-// 	while(delta_warmup <= Warm_up)		
-// 	{
-//    	MAX30105_sensor.update();   						// Update sensor
-// 		delta_warmup = micros() - start_warmup;				// delta time of warm up
-// 	}
-// 	int delta_5s = 0;										// delta time between current and start time
-// 	int start_5s = micros();								// start 5 second current balancing
-// 	while(delta_5s <= 5000000)
-// 	{
-// 		delta_5s = micros() - start_5s; 					// delta time calculation 3 seconds
-// 		// if raw data is available 
-// 		MAX30105_sensor.update();																				// Update sensor
-//   	if (MAX30105_sensor.getRawValues(&raw_IR_Val, &raw_RED_Val))
-//   	{
-// 	    	//Get DC value from IR signal:
-// 			bool IR_DC = true;																					//Return either DC value (true) or AC value (false)
-// 			float IR_DC_val = DCR_function_IR(raw_IR_Val, ALPHA_DCR, IR_DC);       								//Get DC value from IR signal
+void Current_Balancing()
+{
+	//Variables store raw RED and IR values
+	uint16_t raw_IR_Val = 0;
+	uint16_t raw_RED_Val = 0;
+	MAX30105_Startup();										// start-up the MAX30105 sensor
+	// Warm Up:
+	int delta_warmup = 0;									// delta time of warm up
+	int start_warmup = micros();							// start time of warm up (1,5 second)
+	while(delta_warmup <= 1500000)		
+	{
+    // if raw data is available 
+    while (MAX30105_sensor.available() == false) //do we have new data
+    MAX30105_sensor.check();                     //chech for new data
+		delta_warmup = micros() - start_warmup;				// delta time of warm up
+	}
+	int delta_5s = 0;										// delta time between current and start time
+	int start_5s = micros();								// start 5 second current balancing
+	while(delta_5s <= 5000000)
+	{
+		// if raw data is available 
+    while (MAX30105_sensor.available() == false) //do we have new data
+    MAX30105_sensor.check();                     //chech for new data
+    raw_IR_Val = MAX30105_sensor.getIR();
+    raw_RED_Val = MAX30105_sensor.getRed();
 
-// 	    	//Get DC value from RED signal:
-// 			bool RED_DC = true; 																				//Return either DC value (true) or AC value (false)
-// 	    	float RED_DC_val = DCR_function_RED(raw_RED_Val, ALPHA_DCR, RED_DC);    							//Get DC value from RED signal
-	
-// 	    	//RED and IR DC current balancing:
-// 			if (IR_DC_val - RED_DC_val > ACCEPTABLE_CURRENT_DIFF && RED_current < MAX30105_LED_CURR_50MA)
-// 			{
-//   			counter++;
-//   			RED_current = LEDCurrent_array[counter];          			              						//change RED LED's current
-//   			MAX30105_sensor.setLedsCurrent(IR_current, RED_current);   	          							//Set led's current IR and Red respectively
-//   		}
-// 			if (RED_DC_val - IR_DC_val > ACCEPTABLE_CURRENT_DIFF && RED_current > 0)
-// 			{
-//   			counter--;
-//   			RED_current = LEDCurrent_array[counter];          			              						//change RED LED's current
-//   			MAX30105_sensor.setLedsCurrent(IR_current, RED_current);   	          							//Set led's current IR and Red respectively
-//   		}
-//   		// Test print: 
-// 			//Serial.print(RED_DC_val); 
-// 			//Serial.print(" , ");
-// 			//Serial.println(IR_DC_val);
-// 		}
-// 	}
-// 	MAX30105_sensor.shutdown();								// Shutdown MAX30105 sensor
-// }
+    //Get DC value from IR signal:
+		bool IR_DC = true;																					//Return either DC value (true) or AC value (false)
+		float IR_DC_val = DCR_function_IR(raw_IR_Val, ALPHA_DCR, IR_DC);       								//Get DC value from IR signal
+
+    //Get DC value from RED signal:
+		bool RED_DC = true; 																				//Return either DC value (true) or AC value (false)
+    float RED_DC_val = DCR_function_RED(raw_RED_Val, ALPHA_DCR, RED_DC);    							//Get DC value from RED signal
+
+    //RED and IR DC current balancing:
+		// if (IR_DC_val - RED_DC_val > ACCEPTABLE_CURRENT_DIFF && RED_current < MAX30105_LED_CURR_50MA)
+		// {
+		// 	counter++;
+		// 	RED_current = LEDCurrent_array[counter];          			              						//change RED LED's current
+		// 	MAX30105_sensor.setLedsCurrent(IR_current, RED_current);   	          							//Set led's current IR and Red respectively
+		// }
+		// if (RED_DC_val - IR_DC_val > ACCEPTABLE_CURRENT_DIFF && RED_current > 0)
+		// {
+		// 	counter--;
+		// 	RED_current = LEDCurrent_array[counter];          			              						//change RED LED's current
+		// 	MAX30105_sensor.setLedsCurrent(IR_current, RED_current);   	          							//Set led's current IR and Red respectively
+		// }
+		// Test print: 
+		Serial.print(RED_DC_val); 
+		Serial.print(" , ");
+		Serial.println(IR_DC_val);
+    delta_5s = micros() - start_5s;           // delta time calculation 3 seconds
+	}
+	// Shut down MAX30105 sensor:
+  MAX30105_sensor.shutDown();                   // Shutdown MAX30105 sensor
+}
 
 // MAX30105 sensor start up:
 void MAX30105_Startup()
@@ -592,10 +606,12 @@ void MAX30105_Startup()
   //Serial.print("Initializing MAX30105..");
   // Initialize the sensor
   // Failures are generally due to an improper I2C wiring, missing power supply or wrong target chip
-	if (!MAX30105_sensor.begin()) {
-  	Serial.println("FAILED");
-  	for (;;);
-	}
+  // Initialize sensor
+  if (!MAX30105_sensor.begin(Wire, I2C_SPEED_FAST)) //Use default I2C port, 400kHz speed
+  {
+    Serial.println("MAX30105 was not found. Please check wiring/power. ");
+    while (1);
+  }
 
   byte ledBrightness = 50;  //Options: 0=Off to 255=50mA
   byte sampleAverage = 1;   //Options: 1, 2, 4, 8, 16, 32
