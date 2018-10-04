@@ -75,8 +75,8 @@ void setup() {
 	// Get body temperature:				
 	//Body_temperature();	
 	// Get HR SpO2 RR HRV:
-	recording_time = 8000000;			//Heart rate recording time
-  array_size = 630;
+	recording_time = 30000000;			//Heart rate recording time
+  array_size = 2390;
 	HR_SpO2_RR_HRV(recording_time, array_size, true);
   while (Prop_rec == false)
   {
@@ -253,7 +253,7 @@ void HR_SpO2_RR_HRV(int rec_time, int array_size, bool RR_HRV)
 	uint32_t raw_RED_Val = 0;
 	int Expected_Peaks = ((rec_time)/1000000)*0.5;	//Expected beat peaks if heart rate is 30 bpm
 	// Recording required varabiles:
-  int window = 50;                        //length of analyzing window
+  int window = 20;                        //length of analyzing window
 	int IR_array_size = array_size;							// IR's size of array_.
 	float IR_AC_array[IR_array_size];      						// IR signal AC array_.                     
 	int i = 0;													// Counter
@@ -392,39 +392,36 @@ void HR_SpO2_RR_HRV(int rec_time, int array_size, bool RR_HRV)
   }
 
   //Identifies the highest peaks of the of the number of expected peaks.
-  float Beat_array[Expected_Peaks];   // Store detected peaks in array_
-  float Peak = 0;                     // Vale of peak detected
-  bool Peak_detected = false;         // When a peak is detected it becomes true otherwise false
+  float Value_of_Peak = 0;        // Value of peak detected
+  float Prev_value_of_peak = 0;     // Previous value of peak detected 
+  float Sum_of_Peak = 0;                  // Sum of peak detected
+  int Count_peaks = 0;          // Count peaks
+  int Prev_i = 0;             // Previous i
   for (int i = 0; i < j; i++)
   {
-    if(IR_AC_array[i-1] < IR_AC_array[i] && IR_AC_array[i] > IR_AC_array[i+1])
+    if(IR_AC_array[i-1] < IR_AC_array[i] && IR_AC_array[i] > IR_AC_array[i+1] && IR_AC_array[i] > 1 && IR_AC_array[i] != Signal_cap)
     { 
-      Peak = IR_AC_array[i];
-      Peak_detected = true;
-      for (int x = Expected_Peaks - 1; j >= 0; j--)
-      { 
-        if (Peak > Beat_array[x] && Peak_detected == true)
-        {
-          for(int p = 1; p <= x; p++)
-          {
-            Beat_array[p-1] = Beat_array[p];
-          }
-          Beat_array[x] = Peak;
-          Peak_detected = false;
+      Value_of_Peak = IR_AC_array[i];
+      Sum_of_Peak += IR_AC_array[i];
+      Count_peaks++;
+      if (i < Prev_i+14)
+    {
+        if (Value_of_Peak > Prev_value_of_peak)
+      {
+          Sum_of_Peak -= Prev_value_of_peak;
         }
-      }
-    } 
+        else
+        {
+          Sum_of_Peak -= Value_of_Peak;
+        }
+        Count_peaks--;
+    }
+      Prev_i = i;
+      Prev_value_of_peak = Value_of_Peak;
+    }
   }
-
   //Calculating threshold
-  int Sum_beat_array = 0;                   //Total sum of the beat array_.
-  for(int i = 0; i < Expected_Peaks; i++)
-  {
-    //Test print:
-    Serial.print(Beat_array[i]);
-    Sum_beat_array += Beat_array[i];        //Total
-  }
-  float threshold = 0.8*(Sum_beat_array/Expected_Peaks);  //threshold value for beat detection
+  float threshold = 0.8*(Sum_of_Peak/Count_peaks);  //threshold value for beat detection
 
   // Test print: 
   // for(int i = 0; i < j; i++)
@@ -434,7 +431,7 @@ void HR_SpO2_RR_HRV(int rec_time, int array_size, bool RR_HRV)
   //   Serial.println(threshold);
   //   //Serial.print(",");
   //   //Serial.println(i);
-  //   delay(5);
+  //   //delay(5);
   //  } 
 
     // Counting the peaks to calculate BPM, RR and HRV:
@@ -443,7 +440,7 @@ void HR_SpO2_RR_HRV(int rec_time, int array_size, bool RR_HRV)
     int Sum_of_p2p_times = 0;             // sum of the times between peaks in the 5 second recording
     int Delta_p2p_time[110];              // Peak to peak delta time
     int Start_delta = 0;
-    int Prev_i = 0;	   						  // Previous i
+    Prev_i = 0;	   						  // Previous i
     bool check = false;
     for(int i = 0; i < j; i++)
     {  
@@ -483,7 +480,7 @@ void HR_SpO2_RR_HRV(int rec_time, int array_size, bool RR_HRV)
     	refine_factor = 1;												// Factor to refine BPM value
     }else
     {
-    	refine_factor = 1;												// Factor to refine BPM value
+    	refine_factor = 1.05;												// Factor to refine BPM value
     }
     int Total_60s = End_delta*(60000000/(rec_time));                        // Taking the 5 seconds/ 30 seconds to 60 seconds
     int Avg_p2p_time = Sum_of_p2p_times/Peak_count;      							// Average peak to peak time in 5 second recording 
