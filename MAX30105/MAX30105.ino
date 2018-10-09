@@ -56,6 +56,10 @@ void setup() {
 	// Start serial terminal:
 	Serial.begin(115200);
 
+  // start-up the MAX30105 sensor
+  MAX30105_Startup(); 
+  delay(200);       
+
 	Serial.println("INFANT MONITOR:");
   Serial.println("=========");
   Serial.println("");
@@ -66,7 +70,7 @@ void setup() {
   // MAX30105 Warm Up:
   int recording_time = 4500000;     //Heart rate recording time
   int array_size = 225;
-  HR_SpO2_RR_HRV_Tb(recording_time, array_size, true); 
+  HR_SpO2_RR_HRV_Tb(recording_time, array_size, false); 
   //------------------
 
   // Calculate Initial Values:
@@ -246,9 +250,9 @@ void Body_temperature_thermistor()
 // Function to get HR, SpO2, RR, HRV values:
 void HR_SpO2_RR_HRV_Tb(int rec_time, int array_size, bool RR_HRV)
 {
-	// start-up the MAX30105 sensor
-	MAX30105_Startup();	
-  delay(200);				
+  //Wake Sensor up:
+  MAX30105_sensor.wakeUp();
+  delay(200);
 	//Variables store raw RED and IR values:
 	uint32_t raw_IR_Val = 0;
 	uint32_t raw_RED_Val = 0;
@@ -286,12 +290,13 @@ void HR_SpO2_RR_HRV_Tb(int rec_time, int array_size, bool RR_HRV)
     // Test Print:
     // Serial.print(raw_IR_Val);
     // Serial.print(",");
+    // Serial.println(raw_RED_Val);
     // Serial.println(i);
     // IR Signal:
     bool IR_DC = false;	//Return either DC value (true) or AC value (false)  
     IR_AC_array[i] = DCR_function_IR(raw_IR_Val, ALPHA_DCR, IR_DC);         //filter raw IR LED data through DC removal
     //Calculating AC RMS value: (only after 100 iterations - remove noise)
-    if (i > 200 && i <= 250)
+    if (i > 300 && i <= 350)
     {
       Sum_AC_IR += pow((IR_AC_array[i]),2);                                 //Sum of the IR AC signal value
     }
@@ -301,7 +306,7 @@ void HR_SpO2_RR_HRV_Tb(int rec_time, int array_size, bool RR_HRV)
     //Get DC value from signal:
     IR_DC = true;
     IR_DC_val = DCR_function_IR(raw_IR_Val, ALPHA_DCR, IR_DC);        		//Get DC value from IR signal
-    if (i == 250)
+    if (i == 325)
     {
       IR_DC_val_SpO2 = IR_DC_val;
     }
@@ -312,14 +317,14 @@ void HR_SpO2_RR_HRV_Tb(int rec_time, int array_size, bool RR_HRV)
     bool RED_DC = false;	//Return either DC value (true) or AC value (false)  
     float RED_AC_value = DCR_function_RED(raw_RED_Val, ALPHA_DCR, RED_DC); 	//filter raw RED LED data through DC removal
     //Calculating AC RMS value: (only after 50 iterations - remove noise)
-    if (i > 200 && i <= 250)
+    if (i > 300 && i <= 350)
     {
       Sum_AC_RED += pow((RED_AC_value),2);                               	//Sum of the RED AC signal value
     }
     //Get DC value from signal
     RED_DC = true;
     RED_DC_val = DCR_function_RED(raw_RED_Val, ALPHA_DCR, RED_DC);    		//Get DC value from RED signal
-    if (i == 250)
+    if (i == 325)
     {
       RED_DC_val_SpO2 = RED_DC_val;
     }
@@ -332,16 +337,13 @@ void HR_SpO2_RR_HRV_Tb(int rec_time, int array_size, bool RR_HRV)
     // Test Print:
     // Serial.print(IR_AC_array[i]);
     // Serial.print(",");
+    // Serial.print(IR_RED_array[i]);
     // Serial.println(i);
 
     i++;
     
     delta_rec = micros() - start_rec;						// delta time calculation 30 seconds 
 	}
-
-  // Get Temperature:
-  float Core_body_T = MAX30105_sensor.readTemperature();
-  Tb_val = Core_body_T;
 
 	// Shut down MAX30105 sensor:
 	MAX30105_sensor.shutDown();       						// Shutdown MAX30105 sensor
@@ -441,7 +443,7 @@ void HR_SpO2_RR_HRV_Tb(int rec_time, int array_size, bool RR_HRV)
   //   Serial.println(threshold);
   //   //Serial.print(",");
   //   //Serial.println(i);
-  //   //delay(5);
+  //   delay(5);
   //  } 
 
     // Counting the peaks to calculate BPM, RR and HRV:
@@ -488,7 +490,8 @@ void HR_SpO2_RR_HRV_Tb(int rec_time, int array_size, bool RR_HRV)
     if (RR_HRV == true)
     {
     	refine_factor = 1;												// Factor to refine BPM value
-    }else
+    }
+    else
     {
     	refine_factor = 1.05;												// Factor to refine BPM value
     }
@@ -501,7 +504,7 @@ void HR_SpO2_RR_HRV_Tb(int rec_time, int array_size, bool RR_HRV)
     float RMS_AC_IR = sqrt(Sum_AC_IR/50);                     						// RMS of the IR AC signal
     float RMS_AC_RED = sqrt(Sum_AC_RED/50);                   						// RMS of the RED AC signal
     float R = (RMS_AC_RED/RED_DC_val_SpO2)/(RMS_AC_IR/IR_DC_val_SpO2);    			// R value used to calculate Sp02
-    float SpO2 = 110 - 17*R; 
+    float SpO2 = 110 - 25*R; 
     SpO2_val = SpO2;
 
     if (RR_HRV == true)
@@ -525,19 +528,22 @@ void HR_SpO2_RR_HRV_Tb(int rec_time, int array_size, bool RR_HRV)
 	    // Calculating heart rate variability (HRV):
 	    float HRV = 0;            								// Heart rate variablity score from 0 - 100
 	    int sum_of_HRV = 0;     								//sum of square peak to peak values for RMSSD calculation 
-	    for(int i = 0; i < Peak_count-2; i++) 
+	    for(int i = 1; i < Peak_count-1; i++) 
 	    {
 	      // Test print:
 	      //Serial.println(Delta_p2p_time[i]);
-	      sum_of_HRV += pow((Delta_p2p_time[i] - Delta_p2p_time[i+1]), 2);
+	      sum_of_HRV += pow((Delta_p2p_time[i] - Delta_p2p_time[i-1]), 2);
 	      //Serial.println(sum_of_HRV);
 	    }
 	    // Test print:
 	    //Serial.println(sum_of_HRV);
 	    //Serial.println(Peak_count);
-	    HRV = sqrt(sum_of_HRV/(Peak_count-1));        			// RMSSD calculation to get HRV score
-	    float HRV_score_float = log(HRV);             			// ln(RMSSD) value between 0-6.5
-	    float HRV_score = HRV_score_float*15.385;       		// ln(RMSSD0 value between 0-100
+	    HRV = sqrt(sum_of_HRV/(Peak_count-2));        			// RMSSD calculation to get HRV score
+      Serial.println(HRV);
+	    //float HRV_score_float = log(HRV);             			// ln(RMSSD) value between 0-6.5
+      //Serial.println(HRV_score_float);
+	    float HRV_score = HRV*15.385;                    		// ln(RMSSD0 value between 0-100
+      Serial.println(HRV_score);
 	    HRV_val = HRV_score;
     }
 }
